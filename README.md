@@ -320,12 +320,12 @@ export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:$(pwd)/models
 
 This project is licensed under the AGPL-3.0 - see the LICENSE file for details.
 
+
+> **Need Custom Environments & Commercial Use ?**
+> Forest3D ships natural/forest environments out of the box. Need a different one: vineyard, orchard, agricultural row crops, urban, lunar, or a custom site? Custom environment builds are available.
+> Contact the authors
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Custom Environments & Commercial Use
-
-Forest3D ships natural/forest environments out of the box. Need a different one: vineyard, orchard, agricultural row crops, urban, lunar, or a custom site? Custom environment builds are available.
-
-📧 khalid.bourr@gmail.com
