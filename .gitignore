@@ -45,3 +45,8 @@ Blender-Assets/**/*.blend
 
 # Spike raw render data (regenerable)
 frames/
+
+# Raw asset downloads + staging (registry is the durable record)
+Blender-Assets/**/_raw*/
+Blender-Assets/.hero/
+Blender-Assets/**/textures/
