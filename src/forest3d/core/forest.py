@@ -72,12 +72,16 @@ class WorldPopulator:
             self,
             base_path: Path,
             progress_callback: Optional[Callable[[int, str], None]] = None,
+            seed: Optional[int] = None,
     ):
         """Initialize the world populator.
 
         Args:
             base_path: Project base path containing models/ and worlds/.
             progress_callback: Optional callback for progress updates (percent, message).
+            seed: Optional RNG seed. When set, model placement is reproducible
+                (same seed -> identical world), which is required for debugging
+                VIO/lidar failures against a specific generated scenario.
 
         Raises:
             FileNotFoundError: If required paths don't exist.
@@ -86,6 +90,7 @@ class WorldPopulator:
         self.models_path = self.base_path / "models"
         self.worlds_path = self.base_path / "worlds"
         self.progress_callback = progress_callback
+        self.seed = seed
 
         # Store (x, y, z, scale) for each placed model
         self.placed_models: Dict[str, List[Tuple[float, float, float, float]]] = {
@@ -455,6 +460,13 @@ class WorldPopulator:
             Path to created world file.
         """
         from forest3d.utils.sdf import create_world_base, write_world_file
+
+        # Seed the global RNG so placement is reproducible. forest.py uses the
+        # global np.random.* throughout, so a single seed call here makes the
+        # whole world deterministic for a given seed.
+        if self.seed is not None:
+            np.random.seed(self.seed)
+            logger.info(f"Placement seeded with seed={self.seed} (reproducible)")
 
         # Reset placed models
         for category in self.placed_models:

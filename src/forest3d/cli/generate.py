@@ -24,11 +24,15 @@ from forest3d.core.forest import WorldPopulator
     help="Output world file path"
 )
 @click.option(
+    "--seed", type=int, default=None,
+    help="RNG seed for reproducible placement (same seed -> identical world)."
+)
+@click.option(
     "--verbose", "-v", is_flag=True,
     help="Show detailed statistics including scale info"
 )
 @click.pass_context
-def generate(ctx, base_path, density, output, verbose):
+def generate(ctx, base_path, density, output, seed, verbose):
     """Generate a forest world from existing models.
 
     Procedurally places models on terrain using intelligent positioning
@@ -120,6 +124,7 @@ def generate(ctx, base_path, density, output, verbose):
             populator = WorldPopulator(
                 base_path=project_base,
                 progress_callback=progress_callback,
+                seed=seed,
             )
 
             world_path = populator.create_forest_world(density_config)
