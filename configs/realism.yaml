@@ -1,0 +1,35 @@
+# Forest3D realism conversion profile
+#
+# Use with: forest3d -c configs/realism.yaml convert -i Blender-Assets -o models
+#
+# Tuned for photoreal downloaded assets (high-poly meshes, PBR + alpha foliage).
+# Each category overrides the global decimation/collision defaults; categories not
+# listed fall back to the legacy blanket behaviour (visual 0.1 / collision-mesh 0.01).
+#
+# Rationale (see REALISM_PLAN.md §2):
+#   - trees keep FULL visual detail (visual_decimation 1.0) so thin branches and
+#     leaf cards survive; skip_foliage_decimation is belt-and-suspenders in case a
+#     mixed trunk+leaf object ever gets a non-1.0 ratio. Collision = trunk cylinder.
+#   - rocks are photo-scanned: decimate moderately (0.5) and use a convex hull for
+#     clean drive-through physics instead of an exploded mesh hull.
+#   - bushes keep foliage, low box collision.
+
+blender:
+  visual_decimation: 0.1        # global fallback (legacy default)
+  collision_decimation: 0.01    # global fallback (legacy default)
+  categories:
+    tree:
+      visual_decimation: 1.0          # no decimation - preserve branches + leaf cards
+      skip_foliage_decimation: true
+      collision_strategy: trunk_cylinder
+    rock:
+      visual_decimation: 0.5          # gentle decimation of photo-scan meshes
+      collision_strategy: convex_hull
+    bush:
+      visual_decimation: 1.0
+      skip_foliage_decimation: true
+      collision_strategy: box
+    grass:
+      visual_decimation: 1.0
+      skip_foliage_decimation: true
+      collision_strategy: box

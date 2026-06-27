@@ -98,7 +98,13 @@ class AssetExporter:
 
         glb_path = mesh_dir / f"{base_name}.glb"
         collision_path = mesh_dir / f"{base_name}_collision.glb"
-        self._export_glb(blend_file, glb_path, collision_path)
+        resolved = self.config.resolve_category(category)
+        logger.info(
+            f"  [{category}] visual_dec={resolved.visual_decimation} "
+            f"collision={resolved.collision_strategy} "
+            f"skip_foliage={resolved.skip_foliage_decimation}"
+        )
+        self._export_glb(blend_file, glb_path, collision_path, resolved)
 
         if progress_callback:
             progress_callback(80, "Creating model files...")
@@ -113,15 +119,60 @@ class AssetExporter:
         logger.info(f"Done: {base_name}")
         return asset_dir
 
-    def _export_glb(self, blend_file: Path, output_path: Path, collision_path: Path) -> None:
-        """Export glTF binary (.glb) for visual and collision meshes."""
+    def _export_glb(
+        self,
+        blend_file: Path,
+        output_path: Path,
+        collision_path: Path,
+        resolved=None,
+    ) -> None:
+        """Export glTF binary (.glb) for visual and collision meshes.
+
+        ``resolved`` is a ResolvedCategory; if None, falls back to the global
+        decimation ratios with legacy decimated-mesh collision (backward compat).
+        """
+        if resolved is None:
+            visual_dec = self.visual_decimation
+            collision_dec = self.collision_decimation
+            collision_strategy = "mesh"
+            skip_foliage = False
+        else:
+            visual_dec = resolved.visual_decimation
+            collision_dec = resolved.collision_decimation
+            collision_strategy = resolved.collision_strategy
+            skip_foliage = resolved.skip_foliage_decimation
+
         blender_script = f'''
 import bpy
 
-def prepare_and_export(filepath, decimate_ratio, include_textures=True):
-    bpy.ops.object.select_all(action='DESELECT')
+FOLIAGE_KEYWORDS = ("leaf", "leaves", "foliage", "frond", "needle", "alpha", "canopy")
 
-    mesh_objects = []
+
+def obj_has_alpha(obj):
+    """True if any material slot signals transparency (foliage leaf cards).
+
+    Version-stable on Blender 4.2 EEVEE-Next: leads with the Principled BSDF
+    Alpha socket (linked or <1) rather than the deprecated blend_method.
+    """
+    for slot in obj.material_slots:
+        m = slot.material
+        if not m:
+            continue
+        if getattr(m, "use_nodes", False) and m.node_tree:
+            bsdf = m.node_tree.nodes.get("Principled BSDF")
+            if bsdf and "Alpha" in bsdf.inputs:
+                a = bsdf.inputs["Alpha"]
+                if a.is_linked or a.default_value < 1.0:
+                    return True
+        if any(k in (m.name or "").lower() for k in FOLIAGE_KEYWORDS):
+            return True
+    if any(k in (obj.name or "").lower() for k in FOLIAGE_KEYWORDS):
+        return True
+    return False
+
+
+def _unhide_meshes():
+    objs = []
     for obj in bpy.data.objects:
         if obj.type == 'MESH':
             obj.hide_set(False)
@@ -130,34 +181,132 @@ def prepare_and_export(filepath, decimate_ratio, include_textures=True):
             if obj.name not in bpy.context.view_layer.objects:
                 try:
                     bpy.context.collection.objects.link(obj)
-                except:
+                except Exception:
                     pass
-            mesh_objects.append(obj)
+            objs.append(obj)
+    return objs
 
-    for obj in mesh_objects:
+
+def export_visual(filepath, decimate_ratio, skip_foliage):
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in _unhide_meshes():
+        if skip_foliage and obj_has_alpha(obj):
+            print("SKIP_DECIMATE_FOLIAGE:", obj.name)
+            continue
+        if decimate_ratio >= 1.0:
+            continue  # 1.0 = keep full visual detail (real high-poly assets)
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
-        decimate = obj.modifiers.new(name="Decimate", type='DECIMATE')
-        decimate.ratio = decimate_ratio
+        dec = obj.modifiers.new(name="Decimate", type='DECIMATE')
+        dec.ratio = decimate_ratio
         bpy.ops.object.modifier_apply(modifier="Decimate")
-
     bpy.ops.export_scene.gltf(
-        filepath=filepath,
-        export_format='GLB',
-        use_selection=False,
-        export_apply=True,
-        export_texcoords=include_textures,
-        export_normals=True,
-        export_materials='EXPORT' if include_textures else 'NONE',
-        export_image_format='AUTO',
-        export_yup=False,
+        filepath=filepath, export_format='GLB', use_selection=False,
+        export_apply=True, export_texcoords=True, export_normals=True,
+        export_materials='EXPORT', export_image_format='AUTO', export_yup=False,
     )
 
-bpy.ops.wm.open_mainfile(filepath="{blend_file}")
-prepare_and_export("{output_path}", {self.visual_decimation}, include_textures=True)
+
+def _world_verts():
+    import mathutils  # noqa: F401
+    coords = []
+    for obj in bpy.data.objects:
+        if obj.type != 'MESH':
+            continue
+        mw = obj.matrix_world
+        for v in obj.data.vertices:
+            coords.append(mw @ v.co)
+    return coords
+
+
+def _clear_all():
+    if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.delete()
+
+
+def build_collision(strategy, decimate_ratio):
+    coords = _world_verts()
+    if not coords:
+        raise RuntimeError("no mesh geometry for collision")
+    xs = [c.x for c in coords]; ys = [c.y for c in coords]; zs = [c.z for c in coords]
+    xmin, xmax = min(xs), max(xs); ymin, ymax = min(ys), max(ys)
+    zmin, zmax = min(zs), max(zs)
+    cx = (xmin + xmax) / 2.0; cy = (ymin + ymax) / 2.0; cz = (zmin + zmax) / 2.0
+    h = max(zmax - zmin, 1e-3)
+
+    if strategy == 'mesh':
+        # legacy: decimated copy of the visual geometry
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in _unhide_meshes():
+            obj.select_set(True)
+            bpy.context.view_layer.objects.active = obj
+            dec = obj.modifiers.new(name="Decimate", type='DECIMATE')
+            dec.ratio = decimate_ratio
+            bpy.ops.object.modifier_apply(modifier="Decimate")
+        return
+
+    if strategy == 'trunk_cylinder':
+        # fit a thin upright cylinder to the base footprint (bottom 15% band)
+        band = zmin + 0.15 * h
+        base = [c for c in coords if c.z <= band] or coords
+        bx = sum(c.x for c in base) / len(base)
+        by = sum(c.y for c in base) / len(base)
+        r = max((((c.x - bx) ** 2 + (c.y - by) ** 2) ** 0.5) for c in base)
+        r = max(r, 0.05)
+        _clear_all()
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=24, radius=r, depth=h, location=(bx, by, zmin + h / 2.0))
+        return
+
+    if strategy == 'convex_hull':
+        _clear_all()
+        me = bpy.data.meshes.new("collision")
+        me.from_pydata([(c.x, c.y, c.z) for c in coords], [], [])
+        o = bpy.data.objects.new("collision", me)
+        bpy.context.collection.objects.link(o)
+        bpy.context.view_layer.objects.active = o
+        o.select_set(True)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.convex_hull()
+        bpy.ops.object.mode_set(mode='OBJECT')
+        return
+
+    if strategy == 'box':
+        _clear_all()
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(cx, cy, cz))
+        ob = bpy.context.object
+        ob.scale = (max(xmax - xmin, 1e-3), max(ymax - ymin, 1e-3), h)
+        bpy.ops.object.transform_apply(scale=True)
+        return
+
+    if strategy == 'sphere':
+        _clear_all()
+        r = max(((c.x - cx) ** 2 + (c.y - cy) ** 2 + (c.z - cz) ** 2) ** 0.5 for c in coords)
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            segments=16, ring_count=8, radius=max(r, 0.05), location=(cx, cy, cz))
+        return
+
+    raise RuntimeError("unknown collision strategy: " + strategy)
+
+
+def export_collision(filepath, strategy, decimate_ratio):
+    build_collision(strategy, decimate_ratio)
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.ops.export_scene.gltf(
+        filepath=filepath, export_format='GLB', use_selection=False,
+        export_apply=True, export_texcoords=False, export_normals=True,
+        export_materials='NONE', export_image_format='NONE', export_yup=False,
+    )
+
 
 bpy.ops.wm.open_mainfile(filepath="{blend_file}")
-prepare_and_export("{collision_path}", {self.collision_decimation}, include_textures=False)
+export_visual("{output_path}", {visual_dec}, {skip_foliage})
+
+bpy.ops.wm.open_mainfile(filepath="{blend_file}")
+export_collision("{collision_path}", "{collision_strategy}", {collision_dec})
 '''
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
