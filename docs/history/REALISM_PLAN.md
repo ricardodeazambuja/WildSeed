@@ -1,5 +1,11 @@
 # Forest3D realism plan — reaching reference-screenshot quality
 
+> **⚠️ Historical (superseded).** Original realism plan, kept for provenance. The work it
+> scoped was completed — see [`docs/DEMO_REALISM_V2_REPORT.md`](../DEMO_REALISM_V2_REPORT.md)
+> (final report) and [`docs/baseline_metrics.md`](../baseline_metrics.md) (metrics). Paths
+> below that say `spike/` now live under `tools/` (one-off diagnostic images under
+> `tools/archive/`); this archived text is not rewritten for the rename.
+
 **Goal:** make generated worlds look like the project's reference screenshots
 (`Screenshot from 2026-01-0*.png`: photo-textured savanna trees, normal-mapped boulders,
 grass-textured terrain) instead of the spike's flat-color primitives (`spike/forest_*.png`).
@@ -8,7 +14,7 @@ grass-textured terrain) instead of the spike's flat-color primitives (`spike/for
 - **Assets:** sourced photoreal `.blend` (not procedural) for trees; real assets for rock/bush too.
 - **Quality budget:** *balanced + LODs* — 2K PBR, moderate poly, alpha foliage; viable for batch VIO/lidar sim + the ~60 GB disk policy.
 - **Licensing:** anything goes for now (not publishing), **but every asset is logged** in
-  [`spike/ASSET_REGISTRY.md`](spike/ASSET_REGISTRY.md) — USED (source+license) and a REJECTED list
+  [`spike/ASSET_REGISTRY.md`](../../tools/ASSET_REGISTRY.md) — USED (source+license) and a REJECTED list
   (so dead-ends aren't re-tried).
 
 **Scope note:** the spike already proved the *orchestration* (convert → generate → graft →

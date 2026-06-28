@@ -1,5 +1,11 @@
 # Forest3D integration spike — findings
 
+> **⚠️ Historical (superseded).** Findings from the original integration spike, kept for
+> provenance. Paths that say `spike/` now live under `tools/` (one-off diagnostic images,
+> incl. `proof_*`, `forest_cam_*`, `verify_tree`, under `tools/archive/`); this archived text
+> is not rewritten for the rename. Current usage is documented in the top-level
+> [`README.md`](../../README.md).
+
 **Date:** 2026-06-27 · **Host:** hybrid laptop, NVIDIA RTX 2070 Max-Q (driver 535), gz Harmonic.
 **Scope:** de-risk adopting [Forest3D](https://github.com/unitsSpaceLab/Forest3D) (`main`, `5c3d331`)
 as a procedural off-road world generator for the AutonomyTests ROS 2 / gz Harmonic project.
@@ -167,15 +173,15 @@ cameras — it loaded clean with **zero** errors. This is a direct starting poin
 1. **NumPy 2 vs GDAL (image broken OOB).** First `terrain` run: `_ARRAY_API not found` →
    `numpy.core.multiarray failed to import`. The image ships **NumPy 2.2.6**, but system GDAL
    (`osgeo`, 3.4.1) was built against NumPy 1.x. **Fix:** pin `numpy<2` (→ 1.26.4). Baked into
-   [`docker/Dockerfile.egl`](docker/Dockerfile.egl). *This will bite anyone who builds the stock image.*
+   [`docker/Dockerfile.egl`](../../docker/Dockerfile.egl). *This will bite anyone who builds the stock image.*
 2. **Headless EGL / llvmpipe (the brief's §5 #1).** Pre-empted: baked the NVIDIA EGL vendor ICD
    (`/usr/share/glvnd/egl_vendor.d/10_nvidia.json`) into the derived image. **Verified the render path
    the authoritative way** — `~/.gz/rendering/ogre2.log` reported
    `GL_RENDERER = NVIDIA GeForce RTX 2070`, **not** `llvmpipe`. (`glxinfo` is the *wrong* probe here —
    gz renders through EGL, not GLX.) Run flags: `--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all`.
 3. **Frame capture: `<camera><save>` does nothing headless** in this gz build (no PNGs anywhere).
-   Switched to a **native gz-transport subscriber** ([`spike/capture_cam.py`](spike/capture_cam.py),
-   [`spike/capture_sensors.py`](spike/capture_sensors.py)) — the image has `python3-gz-transport13`
+   Switched to a **native gz-transport subscriber** ([`spike/capture_cam.py`](../../tools/capture_cam.py),
+   [`spike/capture_sensors.py`](../../tools/capture_sensors.py)) — the image has `python3-gz-transport13`
    + `python3-gz-msgs10`. No ROS needed. (AutonomyTests captures via the ROS bridge; out of scope here.)
 4. **Camera-below-deck blank (§5 / notes #8 cause B):** avoided entirely by testing a **bare sensor
    rig, no robot** — the project must still mount the Husky camera at **z ≥ 0.25 m** when it wires the
