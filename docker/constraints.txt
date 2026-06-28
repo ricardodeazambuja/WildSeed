@@ -17,6 +17,10 @@ PyYAML==6.0.3
 click==8.4.2
 rich==15.0.0
 pydantic==2.13.4
+# opencv-python-headless: image-level feature metrics for spike/compare.py (ORB/FAST,
+# spatial coverage, tiling autocorrelation). Headless variant — no GUI/X11 libs. Matches
+# the host cv2 4.11 used to develop the metric harness. Compatible with the numpy 1.26 pin.
+opencv-python-headless==4.11.0.86
 
 # transitive deps pinned for a fully reproducible resolve
 pydantic_core==2.46.4

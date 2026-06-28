@@ -18,4 +18,8 @@ RUN pip3 install --no-cache-dir 'numpy==1.26.4'
 # Pillow: required by the procedural ground compositor (core/ground.py) for PBR
 # texture read/compose/write. Pinned to the known-good version.
 RUN pip3 install --no-cache-dir 'Pillow==12.2.0'
+# opencv-python-headless: image-level feature metrics for spike/compare.py (Phase 0 of
+# DEMO_REALISM_V2 — ORB/FAST, spatial coverage, tiling autocorrelation). Headless variant
+# pulls no GUI/X11 libs. Pinned to match the host cv2 used to develop the harness.
+RUN pip3 install --no-cache-dir 'opencv-python-headless==4.11.0.86'
 USER forest3d
