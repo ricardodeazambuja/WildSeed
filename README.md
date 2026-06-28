@@ -50,7 +50,7 @@ Forest3D follows a 4-step pipeline to generate simulation environments:
 **Example workflow:**
 ```bash
 # Step 1: Generate terrain from DEM
-forest3d terrain --dem ./DEM/terrain.tif
+forest3d terrain --dem ./dem/terrain.tif
 
 # Step 2: Convert Blender assets (auto-detects categories from subfolders)
 forest3d convert -i ./Blender-Assets -o ./models
@@ -83,6 +83,8 @@ structure (canopy trees / understory shrubs / grass + flowers) built from **CC0
 Poly Haven assets** and reproduced with **no account or login**:
 
 ```bash
+# NOTE: the demo renderer needs a GPU (ogre2/EGL). Run inside the forest3d:egl image with
+# --gpus all; see "Gotchas, best practices & caveats" below. Asset build needs Blender only.
 python3 tools/build_assets.py       # fetch+convert the CC0 asset set (idempotent)
 python3 tools/build_scenarios.py    # build all 6 + render tools/scenarios_gallery.png
 ```
@@ -90,10 +92,15 @@ python3 tools/build_scenarios.py    # build all 6 + render tools/scenarios_galle
 Density is fully tunable per category — `forest3d generate --density
 '{"tree":80,"rock":6,"bush":40,"grass":120}' --seed 7` — same `--seed` → identical world.
 
+**Docs:**
+
 - **[docs/TUTORIAL.md](docs/TUTORIAL.md)** — build & randomize a world in 5 minutes
 - **[docs/TERRAIN_GENERATOR.md](docs/TERRAIN_GENERATOR.md)** — `terraingen` reference (presets, all knobs, lakes)
 - **[docs/SCENARIOS.md](docs/SCENARIOS.md)** — the 6 demo scenarios + density tuning
-- **[docs/REALISTIC_DEMOS_PLAN.md](docs/REALISTIC_DEMOS_PLAN.md)** — how the reproducible asset set is sourced
+- **[docs/REALISTIC_DEMOS_PLAN.md](docs/REALISTIC_DEMOS_PLAN.md)** — how the reproducible CC0 asset set is sourced
+- **[docs/DEMO_REALISM_V2_REPORT.md](docs/DEMO_REALISM_V2_REPORT.md)** — how the demos were made VIO/LIO-usable + measurably closer to the reference screenshots (the honest CC0 ceiling)
+- **[docs/baseline_metrics.md](docs/baseline_metrics.md)** — the image-level metric harness (`tools/compare.py`) + before/after numbers per phase
+- **[docs/history/](docs/history/)** — superseded planning notes, kept for provenance
 
 ### Reproducibility
 
@@ -112,6 +119,51 @@ credits in [tools/ASSET_REGISTRY.md](tools/ASSET_REGISTRY.md)).
 > the numpy-1.26 ABI pairing). A Dockerfile can't pin a repo that deletes old debs. For a
 > guaranteed-reproducible artifact, **save the built image**, don't rely on rebuilding:
 > `docker save forest3d:egl | gzip > forest3d-egl-v1.tar.gz` (or push to a registry).
+
+## Gotchas, best practices & caveats
+
+Hard-won lessons (and the cheapest way to avoid each). These cost real debugging time — read
+them before the demo/realism pipeline surprises you.
+
+- **Rendering needs a real GPU (ogre2/EGL).** The scenario/metric renders use the `ogre2`
+  engine via EGL. Run them in the `forest3d:egl` image with `--gpus all` and
+  `NVIDIA_DRIVER_CAPABILITIES=all`. On CPU/llvmpipe you get blank or wrong frames. The plain
+  pipeline (`terrain`/`convert`/`generate`) does **not** need a GPU; only the render step does.
+  ```bash
+  docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e PYTHONPATH=/workspace/src \
+    -v "$PWD:/workspace" --entrypoint bash forest3d:egl -c 'cd /workspace && python3 tools/build_scenarios.py'
+  ```
+- **Editing the library inside the container? Shadow the installed package.** `forest3d` is
+  **pip-installed** into the image, so `python3 -m forest3d ...` imports the *baked-in* copy and
+  silently ignores your edits to `src/forest3d/**`. Pass `-e PYTHONPATH=/workspace/src` to make
+  the workspace source win. Symptom if you forget: metrics/output identical after a "change."
+  (CLI flags and the `tools/*.py` scripts take effect without this — they read the live files.)
+- **Determinism is a feature — use `--seed`.** Same `--seed` + preset → byte-identical DEM and
+  identical placement. The 6 demo scenarios reproduce exactly from a clean build (verified: the
+  rendered PNGs are byte-identical across rebuilds). Vary the seed to get a fresh-but-reproducible
+  world for VIO/LIO test runs.
+- **Single-scene builds leave the gallery with one panel.** `FOREST_SCN=savanna_flats python3
+  tools/build_scenarios.py` renders only that scene, so the 6-panel `tools/scenarios_gallery.png`
+  ends up with a single panel. Rebuild the galleries from the frames on disk with
+  `python3 tools/regen_galleries.py` (no re-render needed).
+- **CC0 ceiling — what "realistic" does and doesn't mean here.** The demo assets are free **CC0**
+  (Poly Haven), *not* the commercial Maxtree foliage / Megascans scans in the reference
+  screenshots. So the demos match **composition, density, variety, terrain shape and ground
+  non-repetition** — not per-asset fidelity: CC0 foliage reads darker/sparser at distance, and
+  bare-sand biomes keep genuine surface relief. The gap is measured, not hidden — see
+  [docs/DEMO_REALISM_V2_REPORT.md](docs/DEMO_REALISM_V2_REPORT.md).
+- **Foliage must export as `alphaMode=MASK`, or you get black blobs.** Poly Haven foliage wires
+  leaf transparency through a custom node group the glTF exporter can't read → it exports
+  `alphaMode=BLEND` → dense double-sided leaves render as dark depth-sorted blobs.
+  `tools/normalize_blend.py` rebuilds the leaf material as a plain Principled BSDF with
+  `Math:GreaterThan(0.5)→Alpha` so Blender 4.2 writes `MASK`. **Verify:** the `.glb` material's
+  `alphaMode` must be `MASK` (not `BLEND`). Also prefer the *assembled* `<id>_LOD<n>` tree object
+  (>100k tris), not the kit pieces (a few hundred tris → flat cards).
+- **The metric harness lives in-container.** `tools/compare.py` (needs `opencv-python-headless`,
+  already in `:egl`) quantifies the realism gap against the 3 reference screenshots. Crop the
+  Gazebo GUI (toolbar/playbar) from screenshots first — it does this for the bundled originals.
+  `tools/quickmetric.py <scene>` gives a fast single-scene readout.
+- **For a *true* freeze, save the image, don't rebuild it** (see the apt caveat above).
 
 ## Features
 
@@ -181,13 +233,13 @@ forest3d -c configs/examples/dense_forest.yaml generate
 ### Generate Terrain from DEM
 
 ```bash
-forest3d terrain --dem ./DEM/terrain.tif
+forest3d terrain --dem ./dem/terrain.tif
 
 # With texture from Blender
-forest3d terrain --dem ./DEM/terrain.tif --texture ./Blender-Assets/soil/soil.blend
+forest3d terrain --dem ./dem/terrain.tif --texture ./Blender-Assets/soil/soil.blend
 
 # With options
-forest3d terrain --dem ./DEM/terrain.tif --scale 2.0 --smooth 1.5 --enhance
+forest3d terrain --dem ./dem/terrain.tif --scale 2.0 --smooth 1.5 --enhance
 ```
 
 ### Convert Blender Assets
@@ -262,24 +314,31 @@ See `configs/examples/` for preset configurations.
 
 ```
 Forest3D/
-├── src/forest3d/          # Python package
+├── src/forest3d/          # Python package (the installed `forest3d` CLI) — independent of tools/
 │   ├── cli/               # Command-line interface
-│   ├── core/              # Core modules (terrain, converter, forest)
-│   ├── config/            # Configuration handling
+│   ├── core/              # Core modules (terrain, terraingen, converter, forest, ground)
+│   ├── config/            # Configuration handling (pydantic schema, loader)
 │   └── utils/             # Shared utilities
-├── DEM/                   # DEM files (GeoTIFF)
-├── Blender-Assets/        # Source .blend files
-│   ├── tree/              # Tree models
-│   ├── rock/              # Rock models
-│   ├── bush/              # Bush models
-│   ├── grass/             # Grass models
-│   └── soil/              # Terrain textures
-├── models/                # Generated Gazebo models
-│   ├── ground/            # Terrain model
-│   └── tree/, rock/, etc. # Asset models
-├── worlds/                # Generated world files
-├── configs/               # Configuration presets
-└── docker/                # Docker files
+├── tools/                 # Dev/build tooling for the reproducible demos (NOT the library)
+│   ├── build_assets.py    #   fetch + convert the CC0 Poly Haven asset set
+│   ├── build_scenarios.py #   build + render all 6 demo scenarios
+│   ├── compare.py         #   image-level metric harness vs the reference screenshots
+│   ├── normalize_blend.py #   Blender asset normalizer (MASK foliage, LOD/variant pick)
+│   ├── ASSET_REGISTRY.md  #   per-asset source + license credits
+│   └── archive/           #   one-off spike-era diagnostic renders (historical)
+├── dem/                   # DEM files (GeoTIFF); bundled samples + seeded synth_*.tif (gitignored)
+├── Blender-Assets/        # Source .blend files (gitignored; .gitkeep per category)
+│   ├── tree/  rock/  bush/  grass/  soil/
+├── models/                # Generated Gazebo models (gitignored)
+│   ├── ground/            #   terrain model
+│   └── tree/, rock/, etc. #   asset models
+├── worlds/                # Generated world files (gitignored)
+├── configs/               # Configuration presets (default.yaml, realism.yaml, examples/)
+├── assets/                # Demo asset manifest + source-hash lock (manifest.yaml, .lock.yaml)
+├── docs/                  # Tutorials, terrain/scenario refs, realism report + metrics
+│   └── history/           #   superseded planning notes, kept for provenance
+├── tests/                 # pytest suite
+└── docker/                # Dockerfiles (base + .egl GPU render), constraints, compose
 ```
 
 ## Asset Categories
