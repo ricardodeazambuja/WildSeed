@@ -99,6 +99,18 @@ def test_basin_carves_depression():
     assert pit[ri, ci] < np.median(pit)
 
 
+def test_creek_carves_visible_channel():
+    # a creek must cut a channel deep enough to survive both smoothing passes
+    base, _ = _synth(preset="hilly", seed=4, amplitude_m=8.0, detail=0.0,
+                     n_peaks=0, n_basins=0, n_creeks=0)
+    creek, _ = _synth(preset="hilly", seed=4, amplitude_m=8.0, detail=0.0,
+                      n_peaks=0, n_basins=0, n_creeks=1,
+                      creek_depth_m=5.0, creek_width_m=24.0)
+    assert float(creek.min()) == pytest.approx(0.0, abs=1e-4)
+    # the channel deepens the terrain: total relief grows by several metres
+    assert float(np.ptp(creek)) > float(np.ptp(base)) + 3.0
+
+
 @pytest.mark.skipif(not GDAL_AVAILABLE, reason="GDAL not installed")
 def test_geotiff_roundtrip(tmp_path):
     from osgeo import gdal

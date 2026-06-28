@@ -27,12 +27,14 @@ DEFAULT_OUT = "./dem/synth.tif"
 @click.option("--peaks", "n_peaks", type=int, default=None, help="Override number of peaks/mounts.")
 @click.option("--basins", "n_basins", type=int, default=None, help="Override number of basins (lakes).")
 @click.option("--creeks", "n_creeks", type=int, default=None, help="Override number of creeks.")
+@click.option("--creek-depth", "creek_depth_m", type=float, default=None, help="Creek channel depth (m).")
+@click.option("--creek-width", "creek_width_m", type=float, default=None, help="Creek flat-bed width (m).")
 @click.option("--edge-taper", type=float, default=None, help="Border relief taper fraction (default 0.12).")
 @click.option("--smooth", "smooth_sigma", type=float, default=None, help="Final anti-facet smooth sigma px (default 0.8).")
 @click.pass_context
 def terraingen(ctx, preset, seed, resolution, pixel_m, out_path, amplitude_m, roughness,
                octaves, feature_m, ridged, detail, slope_m, n_peaks, n_basins, n_creeks,
-               edge_taper, smooth_sigma):
+               creek_depth_m, creek_width_m, edge_taper, smooth_sigma):
     """Synthesize a seeded procedural terrain as a GeoTIFF DEM.
 
     The output feeds the existing pipeline unchanged:
@@ -52,7 +54,8 @@ def terraingen(ctx, preset, seed, resolution, pixel_m, out_path, amplitude_m, ro
     for name, val in dict(
         amplitude_m=amplitude_m, roughness=roughness, octaves=octaves, feature_m=feature_m,
         ridged=ridged, detail=detail, slope_m=slope_m, n_peaks=n_peaks, n_basins=n_basins,
-        n_creeks=n_creeks, edge_taper=edge_taper, smooth_sigma=smooth_sigma,
+        n_creeks=n_creeks, creek_depth_m=creek_depth_m, creek_width_m=creek_width_m,
+        edge_taper=edge_taper, smooth_sigma=smooth_sigma,
     ).items():
         if val is not None:
             kwargs[name] = val

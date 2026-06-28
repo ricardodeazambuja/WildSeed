@@ -66,14 +66,14 @@ PRESETS: Dict[str, dict] = {
         amplitude_m=45.0, roughness=0.45, octaves=5, feature_m=85.0, ridged=0.35,
         slope_m=0.0, valley=True,
         n_peaks=0, n_basins=0,
-        n_creeks=1, creek_depth_m=2.5, creek_width_m=12.0,
+        n_creeks=1, creek_depth_m=5.0, creek_width_m=24.0,
     ),
     "lakeland": dict(
         amplitude_m=22.0, roughness=0.45, octaves=5, feature_m=110.0, ridged=0.0,
         slope_m=0.0, valley=False, edge_taper=0.05,  # less taper -> no flooded perimeter ring
         n_peaks=0,
         n_basins=2, basin_depth_m=(7.0, 11.0), basin_r_m=(30.0, 48.0),
-        n_creeks=1, creek_depth_m=2.0, creek_width_m=12.0,
+        n_creeks=1, creek_depth_m=3.5, creek_width_m=18.0,
     ),
 }
 
@@ -81,7 +81,7 @@ PRESETS: Dict[str, dict] = {
 _FEATURE_DEFAULTS = dict(
     peak_h_m=(20.0, 45.0), peak_r_m=(25.0, 50.0),
     basin_depth_m=(6.0, 10.0), basin_r_m=(28.0, 45.0),
-    creek_depth_m=2.0, creek_width_m=12.0,
+    creek_depth_m=3.5, creek_width_m=18.0,
     edge_taper=0.12, smooth_sigma=0.8, detail=1.0,
 )
 
@@ -277,13 +277,16 @@ class TerrainSynthesizer:
         if n_creeks > 0:
             cdepth = float(self._p("creek_depth_m"))
             cwidth = float(self._p("creek_width_m"))
-            half_px = max(cwidth / pixel_m / 2.0, 2.0)  # >= 2px so it survives smoothing
+            half_px = max(cwidth / pixel_m / 2.0, 3.0)  # flat-bed half-width
+            bank_px = max(half_px * 0.8, 2.0)           # sloped banks beyond the bed
             for _ in range(n_creeks):
                 pts = self._meander_px(rng, res)
                 dist = self._polyline_dist(res, pts)
-                carve = cdepth * np.clip(1.0 - dist / (half_px * 1.5), 0.0, 1.0)
-                # smooth the channel shoulders a touch
-                carve = gaussian_filter(carve, sigma=1.0)
+                # flat-bottomed channel: full depth within the bed, linear banks out.
+                # A flat bed reads as a creek far better than a thin V that the two
+                # downstream smoothing passes (ours + the terrain pipeline's) erode.
+                carve = cdepth * np.clip((half_px + bank_px - dist) / bank_px, 0.0, 1.0)
+                carve = gaussian_filter(carve, sigma=0.5)  # soften shoulders only
                 H = H - carve
 
         # 6. anti-facet smooth + shift so min == 0 (the coordinate contract)

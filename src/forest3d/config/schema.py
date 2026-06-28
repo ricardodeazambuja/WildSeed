@@ -188,6 +188,8 @@ class TerrainGenConfig(BaseModel):
     n_peaks: Optional[int] = Field(default=None, ge=0, le=50, description="Number of Gaussian peaks/mounts.")
     n_basins: Optional[int] = Field(default=None, ge=0, le=20, description="Number of basins (mini-lakes).")
     n_creeks: Optional[int] = Field(default=None, ge=0, le=10, description="Number of carved creeks.")
+    creek_depth_m: Optional[float] = Field(default=None, gt=0.0, description="Creek channel depth (metres).")
+    creek_width_m: Optional[float] = Field(default=None, gt=0.0, description="Creek flat-bed width (metres).")
     edge_taper: Optional[float] = Field(default=None, ge=0.0, le=0.5, description="Border relief taper fraction (None -> preset/0.12; lakeland uses less to avoid a flooded perimeter).")
     smooth_sigma: float = Field(default=0.8, ge=0.0, le=5.0, description="Final anti-facet Gaussian smooth (pixels).")
     scale_factor: float = Field(default=1.0, gt=0.0, description="Mirror of TerrainConfig.scale_factor (for lake XY report).")
