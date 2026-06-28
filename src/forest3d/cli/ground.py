@@ -21,6 +21,8 @@ from forest3d.config.schema import GroundConfig
 @click.option("--base", "base_material", default=None, help="Override biome base material key.")
 @click.option("--uniform-tile", type=float, default=None, help="Uniform-mode UV tiling.")
 @click.option("--no-randomize", is_flag=True, default=False, help="Disable per-seed patch jitter.")
+@click.option("--tile-warp", type=float, default=None,
+              help="Patchy-mode domain warp of the tiling grid (tile units; ~40 m wobble). Breaks visible tiling for VIO. 0 = off (sharp grid). Default 1.3.")
 @click.option("--water-level", type=float, default=None, help="Add a single flat water plane at this terrain-Z (m).")
 @click.option("--auto-water", is_flag=True, default=False,
               help="Place one water plane PER basin at its own level (reads <dem>.lakes.json).")
@@ -29,7 +31,7 @@ from forest3d.config.schema import GroundConfig
 @click.option("--models-dir", type=click.Path(), default="./models", help="Models root (for water). Default: ./models")
 @click.pass_context
 def ground(ctx, ground_dir, texture_root, mode, biome, seed, resolution, base_material,
-           uniform_tile, no_randomize, water_level, auto_water, dem_path, models_dir):
+           uniform_tile, no_randomize, tile_warp, water_level, auto_water, dem_path, models_dir):
     """Generate the terrain ground PBR material (uniform or patchy/seeded).
 
     Operates on an already-generated terrain (run `forest3d terrain` first).
@@ -66,6 +68,8 @@ def ground(ctx, ground_dir, texture_root, mode, biome, seed, resolution, base_ma
         gc.uniform_tile = uniform_tile
     if no_randomize:
         gc.randomize = False
+    if tile_warp is not None:
+        gc.tile_warp = tile_warp
     if water_level is not None:
         gc.water_level = water_level
 

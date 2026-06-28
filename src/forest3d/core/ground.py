@@ -31,38 +31,46 @@ logger = logging.getLogger("forest3d.ground")
 # identifies a texture pack under the texture root, e.g. an ambientCG id). A
 # layer is a patch (organic noise blobs) or a trail (path).
 # --------------------------------------------------------------------------- #
+# Phase B (DEMO_REALISM_V2): non-repeating ground + NO trails.
+#   - The single biggest VIO fix: the tiled base (~4 m period) repeats identical features
+#     across the scene -> autocorrelation aliasing -> false loop closures. We break it by
+#     (a) raising base_tile_m so the within-material repeat is coarser, and (b) blending a
+#     SECOND base material with a large-period (45-55 m) MACRO patch at a *different* tile_m,
+#     so over tens of metres the ground varies and no identical feature recurs. The MACRO
+#     layer is the first entry in each `layers` list (high coverage ~0.3-0.5).
+#   - Trails removed entirely: they appear in ZERO originals and their straight hard edges
+#     read as artificial. (`kind: "trail"` support is kept in the compositor for callers
+#     that pass explicit waypoints, but no biome ships one.)
 BIOMES: Dict[str, dict] = {
     "grassland": {
-        "base": "Grass004", "base_tile_m": 4.0,
+        "base": "Grass004", "base_tile_m": 7.0,
         "layers": [
-            {"material": "Ground027", "kind": "patch", "coverage": 0.08, "scale_m": 28.0, "tile_m": 3.0},  # sand
-            {"material": "Gravel023", "kind": "patch", "coverage": 0.05, "scale_m": 16.0, "tile_m": 2.0},  # gravel
-            {"material": "Rocks023",  "kind": "patch", "coverage": 0.04, "scale_m": 9.0,  "tile_m": 2.0},  # pebbles
-            {"material": "Ground054", "kind": "trail", "width_m": 2.5, "count": 2, "tile_m": 3.0},          # dirt
+            {"material": "Ground037", "kind": "patch", "coverage": 0.50, "scale_m": 52.0, "tile_m": 9.0},  # MACRO mossy-litter base variation
+            {"material": "Ground027", "kind": "patch", "coverage": 0.10, "scale_m": 30.0, "tile_m": 5.0},  # sand
+            {"material": "Gravel023", "kind": "patch", "coverage": 0.06, "scale_m": 16.0, "tile_m": 4.0},  # gravel
+            {"material": "Rocks023",  "kind": "patch", "coverage": 0.05, "scale_m": 9.0,  "tile_m": 3.0},  # pebbles
         ],
     },
     "desert": {
-        "base": "Ground027", "base_tile_m": 4.0,
+        "base": "Ground027", "base_tile_m": 7.0,
         "layers": [
-            {"material": "Gravel023", "kind": "patch", "coverage": 0.12, "scale_m": 22.0, "tile_m": 2.0},
-            {"material": "Rocks023",  "kind": "patch", "coverage": 0.07, "scale_m": 9.0,  "tile_m": 2.0},
-            {"material": "Ground054", "kind": "trail", "width_m": 3.0, "count": 1, "tile_m": 3.0},
+            {"material": "Ground037", "kind": "patch", "coverage": 0.45, "scale_m": 55.0, "tile_m": 9.0},  # MACRO base variation
+            {"material": "Gravel023", "kind": "patch", "coverage": 0.14, "scale_m": 24.0, "tile_m": 4.0},
+            {"material": "Rocks023",  "kind": "patch", "coverage": 0.08, "scale_m": 9.0,  "tile_m": 3.0},
         ],
     },
     "gravel": {
-        "base": "Gravel023", "base_tile_m": 2.0,
+        "base": "Gravel023", "base_tile_m": 5.0,
         "layers": [
-            {"material": "Ground027", "kind": "patch", "coverage": 0.10, "scale_m": 20.0, "tile_m": 3.0},
-            {"material": "Rocks023",  "kind": "patch", "coverage": 0.10, "scale_m": 8.0,  "tile_m": 2.0},
-            {"material": "Ground054", "kind": "trail", "width_m": 2.5, "count": 1, "tile_m": 3.0},
+            {"material": "Ground027", "kind": "patch", "coverage": 0.45, "scale_m": 50.0, "tile_m": 9.0},  # MACRO base variation
+            {"material": "Rocks023",  "kind": "patch", "coverage": 0.10, "scale_m": 8.0,  "tile_m": 3.0},
         ],
     },
     "snow": {
-        "base": "Snow", "base_tile_m": 5.0,
+        "base": "Snow", "base_tile_m": 8.0,
         "layers": [
-            {"material": "Rocks023",  "kind": "patch", "coverage": 0.07, "scale_m": 14.0, "tile_m": 2.0},  # exposed rock
-            {"material": "Ground037", "kind": "patch", "coverage": 0.04, "scale_m": 10.0, "tile_m": 3.0},  # bare ground
-            {"material": "Ground054", "kind": "trail", "width_m": 2.0, "count": 1, "tile_m": 3.0},          # tracked path
+            {"material": "Ground037", "kind": "patch", "coverage": 0.30, "scale_m": 45.0, "tile_m": 6.0},  # MACRO exposed-ground variation
+            {"material": "Rocks023",  "kind": "patch", "coverage": 0.09, "scale_m": 14.0, "tile_m": 4.0},  # exposed rock
         ],
     },
 }
@@ -142,14 +150,35 @@ class GroundCompositor:
 
     # ---- sampling / blending --------------------------------------------- #
     @staticmethod
-    def _tiled(tex: np.ndarray, res: int, extent_m: Tuple[float, float], tile_m: float) -> np.ndarray:
+    def _tiled(tex: np.ndarray, res: int, extent_m: Tuple[float, float], tile_m: float,
+               warp: Optional[Tuple[np.ndarray, np.ndarray]] = None) -> np.ndarray:
+        """Sample `tex` tiled over the terrain extent at `tile_m` metres per repeat.
+
+        Phase B (DEMO_REALISM_V2): the no-warp path is the fast separable tiling and
+        produces a perfectly periodic, axis-aligned grid -- which the tiling metric sees
+        as a sharp autocorrelation CROSS (== VIO aliasing). When `warp=(wu, wv)` (a smooth
+        low-frequency displacement field, in tile units) is supplied, the sample UVs are
+        domain-warped so the repetition becomes wavy/non-periodic: the grid no longer
+        lines up with itself under any fixed shift, so the autocorrelation cross collapses
+        while the texture still reads as the same material. Warped sampling is non-separable
+        (full res x res index arrays) so it costs more; callers pass the SAME warp to every
+        layer so the maps stay registered.
+        """
         h, w = tex.shape[:2]
         ex, ey = extent_m
-        ux = ((np.arange(res) / res) * (ex / tile_m)) % 1.0
-        uy = ((np.arange(res) / res) * (ey / tile_m)) % 1.0
-        cols = (ux * w).astype(int) % w
-        rows = (uy * h).astype(int) % h
-        return tex[np.ix_(rows, cols)]
+        if warp is None:
+            ux = ((np.arange(res) / res) * (ex / tile_m)) % 1.0
+            uy = ((np.arange(res) / res) * (ey / tile_m)) % 1.0
+            cols = (ux * w).astype(int) % w
+            rows = (uy * h).astype(int) % h
+            return tex[np.ix_(rows, cols)]
+        u = (np.arange(res, dtype=np.float32) / res) * (ex / tile_m)
+        v = (np.arange(res, dtype=np.float32) / res) * (ey / tile_m)
+        U = u[None, :] + warp[0]                      # res x res, in tile units
+        V = v[:, None] + warp[1]
+        cols = (np.mod(U, 1.0) * w).astype(np.int32) % w
+        rows = (np.mod(V, 1.0) * h).astype(np.int32) % h
+        return tex[rows, cols]
 
     @staticmethod
     def _blend_normal(a: np.ndarray, b: np.ndarray, m: np.ndarray) -> np.ndarray:
@@ -258,12 +287,32 @@ class GroundCompositor:
         biome = BIOMES.get(biome_name, BIOMES["grassland"])
         extent = self._extent_m()
 
+        # Phase B: a smooth low-frequency UV warp (in tile units) shared by every layer.
+        # It bends the otherwise-perfectly-periodic tiling grid into a wavy, non-periodic
+        # pattern so the tiling-autocorrelation cross collapses (the VIO de-aliasing fix),
+        # while the ground still reads as the same material. ~40 m wobble period, ~1.3
+        # tiles of displacement. Disable with cfg.tile_warp = 0.
         base_key = getattr(cfg, "base_material", None) or biome["base"]
         base_tile = biome.get("base_tile_m", 4.0)
+        warp_amp = float(getattr(cfg, "tile_warp", 1.3))
+        warp = None
+        if warp_amp > 0:
+            # Wobble period ~6x the base tile (~40 m): coarse enough to gently BEND the
+            # periodic grid across the frame (collapsing the long-range autocorrelation
+            # cross) without the warp itself introducing a new short period -- a fine,
+            # high-amplitude warp folds the texture into visible swirls AND adds its own
+            # ~period peak (measured: 18 m warp pushed hero tilePk 0.06 -> 0.30). Amplitude
+            # in tile units; octaves=3 keeps it smooth (no high-freq texture tearing).
+            warp_period_m = max(6.0 * base_tile, 40.0)
+            warp_px = max(warp_period_m / ((extent[0] + extent[1]) / 2.0) * res, 8.0)
+            wu = (self._fractal_noise(res, warp_px, rng, octaves=3) - 0.5) * 2.0 * warp_amp
+            wv = (self._fractal_noise(res, warp_px, rng, octaves=3) - 0.5) * 2.0 * warp_amp
+            warp = (wu.astype(np.float32), wv.astype(np.float32))
+
         alb, nor, rgh = self.material(base_key)
-        alb = self._tiled(alb, res, extent, base_tile)
-        nor = self._tiled(nor, res, extent, base_tile) if nor is not None else np.full((res, res, 3), [0.5, 0.5, 1.0], np.float32)
-        rgh = self._tiled(rgh, res, extent, base_tile) if rgh is not None else np.full((res, res, 3), 0.9, np.float32)
+        alb = self._tiled(alb, res, extent, base_tile, warp)
+        nor = self._tiled(nor, res, extent, base_tile, warp) if nor is not None else np.full((res, res, 3), [0.5, 0.5, 1.0], np.float32)
+        rgh = self._tiled(rgh, res, extent, base_tile, warp) if rgh is not None else np.full((res, res, 3), 0.9, np.float32)
 
         layers = getattr(cfg, "layers", None) or biome["layers"]
         applied = []
@@ -276,9 +325,9 @@ class GroundCompositor:
                 logger.warning(str(e))
                 continue
             tile = spec.get("tile_m", 3.0)
-            oa = self._tiled(oa, res, extent, tile)
-            on = self._tiled(on, res, extent, tile) if on is not None else np.full((res, res, 3), [0.5, 0.5, 1.0], np.float32)
-            orr = self._tiled(orr, res, extent, tile) if orr is not None else np.full((res, res, 3), 0.9, np.float32)
+            oa = self._tiled(oa, res, extent, tile, warp)
+            on = self._tiled(on, res, extent, tile, warp) if on is not None else np.full((res, res, 3), [0.5, 0.5, 1.0], np.float32)
+            orr = self._tiled(orr, res, extent, tile, warp) if orr is not None else np.full((res, res, 3), 0.9, np.float32)
 
             if spec.get("kind") == "trail":
                 count = int(spec.get("count", 1))

@@ -35,6 +35,7 @@ assets:
     category: grass
     sha256: 6ff15e278219947ce8013663f918fc3ae074f19157ace2f2dcfb3484e2e4e654
     source: polyhaven:grass_bermuda_01
+    visual_mb: 5.0
   grass_medium_01:
     category: grass
     sha256: 5bbeaf7161508c1de66f137e7fcaec6fdea9c4ac0faa134c384c89c97271bec2
@@ -43,6 +44,7 @@ assets:
     category: grass
     sha256: fd53aafc0650f0e7d9a10bc95f669d396ea7eb746bf2ca5a14497e331410eff1
     source: polyhaven:grass_medium_02
+    visual_mb: 1.9
   island_tree_01:
     category: tree
     sha256: 127d2b17778e0dd28508195e9095fe6e78cbcb6c6adb02faf3034506e29c9cd3

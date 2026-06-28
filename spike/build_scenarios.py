@@ -152,7 +152,9 @@ for s in SCN:
     run(CLI + ["terraingen"] + s["tg"] + ["--size", "192",
                "--pixel", str(s.get("pixel", 1.6)), "-o", "dem/synth.tif"])
     run(CLI + ["terrain", "--dem", "dem/synth.tif"])
-    run(CLI + ["ground", "--mode", "patchy", "--biome", ground, "--seed", "7", "--res", "4096"])
+    _tw = os.environ.get("FOREST_TILE_WARP")  # e.g. 0 renders the no-warp (tiled) baseline
+    _twarg = ["--tile-warp", _tw] if _tw is not None else []
+    run(CLI + ["ground", "--mode", "patchy", "--biome", ground, "--seed", "7", "--res", "4096"] + _twarg)
     for d in os.listdir(MODELS):
         if d.startswith("water"):
             shutil.rmtree(os.path.join(MODELS, d), ignore_errors=True)

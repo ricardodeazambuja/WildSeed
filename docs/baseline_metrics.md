@@ -117,12 +117,62 @@ attributable Phase B fix (break the ground tiling and this drops). Terrain reads
 > Note: per the framing caveat, the Phase B gate is judged on **top.tilePk** (ground always
 > fills the top-down frame; hero ground will shrink once Phase D re-poses the cameras).
 
-## Open items carried into later phases (not Phase 0 bugs)
+## AFTER PHASE B — non-repeating ground + drop trails + black-blob fix
 
-- **Black blobs in temperate_hills** (round dark dots): **verified NOT the BLEND-foliage
-  gotcha** — every foliage GLB checked is `alphaMode=MASK` (shrub_01 8.8k tris, shrub_03 2.4k,
-  grass MASK) and `island_tree_01` is the 519k-tri assembled tree, not a kit piece. Cause is
-  likely distant instances silhouetted / a placement-quality issue → diagnose in Phase C.
-- **Trails** (the straight tan paths) are present in every scene and in zero originals →
-  removed in Phase B.
-- **Sub-metre terrain lumpiness** (alpine/winter especially) → smoothed in Phase A.
+Three changes, bundled (each isolated below so credit is honest):
+1. **Trails removed** from every biome (`ground.py` BIOMES) — they appear in zero originals.
+2. **Ground de-tiled**: macro base-variation patches (45–55 m, a contrasting material at a
+   different tile period) + a **domain warp** of the tiling grid (`_tiled(warp=...)`, ~40 m
+   wobble, `tile_warp` knob) that bends the periodic grid into a non-periodic one.
+3. **Black-blob fix** (was an open item, fixed here because it confounded the metric): two
+   grass models shipped a Poly Haven *material-preview sphere* (`<id>_sphere`, untextured
+   near-black) on a 1 M-tri geometry-nodes object → rendered as solid black balls.
+   `normalize_blend.py` now strips helper objects/`_sphere` material slots; the 2 grass
+   models were regenerated (`grass_medium_02` 1.04 M→15.7 k tris ≈ its clean sibling
+   `grass_medium_01` 19.8 k).
+
+| scene                  | ORB/MP | FAST/MP | cov  | unif | tilePk | period | top.tilePk |
+|------------------------|--------|---------|------|------|--------|--------|------------|
+| temperate_hills        |   3184 |   11857 | 0.55 | 0.00 | 0.051 |   202 | 0.234      |
+| savanna_flats          |   4291 |   12998 | 0.58 | 0.00 | 0.234 |   273 | 0.252      |
+| lakeland_wetland       |   3153 |    6978 | 0.53 | 0.00 | 0.391 |   263 | 0.246      |
+| alpine_snow            |   3802 |   11028 | 0.56 | 0.00 | 0.117 |   278 | 0.161      |
+| winter_forest          |   4868 |   11520 | 0.94 | 0.00 | 0.091 |   353 | 0.216      |
+| coastal_dune           |   4785 |   14374 | 0.59 | 0.00 | 0.328 |   240 | 0.159      |
+
+**De-tiling proof — read the autocorr MAP, not the scalar** (`spike/phaseB_detiling_autocorr.png`):
+- The hero tilePk scalar is too **framing-noisy** to gate on (temperate 0.051 vs lakeland
+  0.391 under the *same* warp — it swings with whatever fills the sparse hero frame). And
+  `top.tilePk` has **no original baseline** (all 3 originals are ground-level, never top-down),
+  so it can't be a pass/fail "vs originals". So the honest evidence is structural:
+- **Warp OFF** top-down autocorrelation = a sharp axis-aligned **cross + a clean regular
+  lattice** of secondary peaks → strong periodic tiling. **Warp ON** = the lattice is
+  **smeared into fuzzy irregular blobs** → the fine ground-tile periodicity is broken (the
+  VIO-aliasing fix). A/B on the SAME fixed-grass scene isolates the warp from the blob fix.
+- The **residual top.tilePk ~0.23 is benign**: its dominant peak sits at **period ~50 m**
+  (`period` col ≈ 114–273 px ≈ 49–117 m), i.e. the *macro base-variation patches* (organic,
+  non-repeating) — NOT the 4–7 m tile. The leftover central cross is partly **DEM-mesh
+  faceting** (a 192² terrain grid, axis-aligned geometry the ground warp cannot touch), which
+  only matters for a nadir/top-down camera; robot/human cameras are oblique (the warp's win
+  shows there — temperate hero tilePk fell 0.286→0.051).
+
+**Attribution (no over-crediting):** the black blobs were present in the Phase 0/A baselines
+(temperate/wetland/coastal use those grass models), so part of this build's FAST/MP movement
+is blob removal, not the warp. The warp's isolated effect is the autocorr-lattice smear above.
+
+**Verdict:** trails gone, fine ground tiling broken (autocorr lattice collapsed), black blobs
+eliminated. The big remaining gap is unchanged and is the headline for Phase C: **coverage
+0.56 vs 0.99** — the scenes are still under-populated.
+
+## Status of the open items
+
+- **Black blobs** — RESOLVED in Phase B. (Earlier guess "distant silhouetted instances" was
+  WRONG; the real cause was the untextured near-black `<id>_sphere` material-preview ball on
+  two grass models. The Phase 0 MASK check was right that it wasn't the BLEND-foliage gotcha,
+  but the blobs weren't benign — they were a separate asset-prep miss, now fixed in
+  `normalize_blend.py`.)
+- **Trails** — RESOLVED in Phase B (deleted from every biome).
+- **Sub-metre terrain lumpiness** — RESOLVED in Phase A (detail/smooth retune).
+- **Under-population (coverage 0.56 vs 0.99)** — OPEN, the Phase C headline.
+- **DEM-mesh faceting** in the top-down autocorr cross — accepted (geometry, nadir-only;
+  oblique robot cameras unaffected). Not chased further.

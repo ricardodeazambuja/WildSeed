@@ -137,6 +137,7 @@ class GroundConfig(BaseModel):
     randomize: bool = Field(default=True, description="Jitter patch coverage/size by seed.")
     base_material: Optional[str] = Field(default=None, description="Override the biome's base material key.")
     uniform_tile: float = Field(default=8.0, gt=0, description="Uniform-mode UV tiling (repeats across terrain).")
+    tile_warp: float = Field(default=1.3, ge=0.0, description="Patchy-mode domain warp of the tiling grid, in tile units (wobble period ~6x the base tile, ~40 m). Bends the periodic grid into a non-periodic one so the tiling-autocorrelation peak collapses (VIO de-aliasing). 0 = off (sharp grid).")
     texture_root: Optional[Path] = Field(
         default=None, description="Directory holding CC0 ground texture packs (default: Blender-Assets/soil)."
     )

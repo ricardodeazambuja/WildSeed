@@ -30,7 +30,14 @@ want_lod = int(argv[3]) if len(argv) > 3 and argv[3] not in ("-", "") else None
 scene_coll = bpy.context.scene.collection
 # Consider ALL mesh objects in the file (Poly Haven links only one LOD set to the view
 # layer, but ships LOD0..LOD3 in data); link any we may pick so view-layer ops work.
-all_meshes = [o for o in bpy.data.objects if o.type == "MESH"]
+# EXCLUDE helper objects: some Poly Haven grass/bush kits ship a "preview sphere" (a
+# material-preview ball, e.g. `grass_medium_02_sphere`) that carries a `_LOD<n>` suffix
+# with no variant letter -> the assembled-object filter below would otherwise KEEP it,
+# and it exports as an untextured near-black OPAQUE mesh that renders as a solid BLACK
+# BLOB scattered through scenes. Drop these by name before any selection.
+HELPER_RE = re.compile(r"(sphere|preview|proxy|placeholder|backdrop|^empty)", re.IGNORECASE)
+all_meshes = [o for o in bpy.data.objects
+              if o.type == "MESH" and not HELPER_RE.search(o.name)]
 if not all_meshes:
     raise SystemExit("no mesh objects in .blend")
 
@@ -83,6 +90,30 @@ for o in list(bpy.data.objects):
 meshes = [o for o in bpy.data.objects if o.type == "MESH"]
 if not meshes:
     raise SystemExit("no mesh objects after LOD/variant selection")
+
+# Strip helper MATERIAL slots: some Poly Haven grass/bush kits put the preview-sphere
+# material (`<id>_sphere`, an untextured near-black OPAQUE ball) on a kept
+# geometry-nodes object that ALSO holds real grass, so dropping the object isn't an
+# option and the HELPER_RE object-name filter above can't see it. Delete the faces
+# assigned to any `*_sphere`/preview/proxy material -> the exporter emits no primitive
+# for the empty slot, so the black blob disappears while the real foliage stays.
+import bmesh  # noqa: E402
+MAT_HELPER_RE = re.compile(r"(_sphere$|preview|proxy|placeholder)", re.IGNORECASE)
+for o in meshes:
+    drop = {i for i, ms in enumerate(o.material_slots)
+            if ms.material and MAT_HELPER_RE.search(ms.material.name)}
+    if not drop:
+        continue
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bm.faces.ensure_lookup_table()
+    dead = [f for f in bm.faces if f.material_index in drop]
+    if dead:
+        bmesh.ops.delete(bm, geom=dead, context="FACES")
+        bm.to_mesh(o.data)
+        print(f"STRIP_HELPER {o.name}: removed {len(dead)} faces "
+              f"({[o.material_slots[i].material.name for i in drop]})")
+    bm.free()
 
 bpy.ops.object.select_all(action="DESELECT")
 for o in meshes:
