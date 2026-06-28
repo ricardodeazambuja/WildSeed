@@ -70,7 +70,7 @@ PRESETS: Dict[str, dict] = {
     ),
     "lakeland": dict(
         amplitude_m=22.0, roughness=0.45, octaves=5, feature_m=110.0, ridged=0.0,
-        slope_m=0.0, valley=False,
+        slope_m=0.0, valley=False, edge_taper=0.05,  # less taper -> no flooded perimeter ring
         n_peaks=0,
         n_basins=2, basin_depth_m=(7.0, 11.0), basin_r_m=(30.0, 48.0),
         n_creeks=1, creek_depth_m=2.0, creek_width_m=12.0,
@@ -82,6 +82,7 @@ _FEATURE_DEFAULTS = dict(
     peak_h_m=(20.0, 45.0), peak_r_m=(25.0, 50.0),
     basin_depth_m=(6.0, 10.0), basin_r_m=(28.0, 45.0),
     creek_depth_m=2.0, creek_width_m=12.0,
+    edge_taper=0.12, smooth_sigma=0.8,
 )
 
 
@@ -279,8 +280,10 @@ class TerrainSynthesizer:
             ri = int(round(np.clip(cy, 0, res - 1)))
             ci = int(round(np.clip(cx, 0, res - 1)))
             floor_z = float(H[ri, ci])
-            freeboard = min(0.4 * depth, 0.6 * depth)  # below the rim, above the floor
-            level = floor_z + max(freeboard, 0.5)
+            # enough to read as water in the basin, low enough not to flood
+            # surrounding ground (single global plane floods anything below it)
+            freeboard = max(0.5, min(0.3 * depth, 1.5))
+            level = floor_z + freeboard
             lakes.append({
                 "center_px": [ci, ri],
                 "center_xy_m": [round((ci - cx_mid) * pixel_m * scale, 3),
