@@ -50,7 +50,12 @@ def model_ready(cat, aid):
 
 def main():
     man = yaml.safe_load(open(MANIFEST))
+    # Merge into any existing lock so a partial (filtered) run doesn't drop other
+    # assets' checksums.
     lock = {}
+    if os.path.exists(LOCK):
+        prev = yaml.safe_load(open(LOCK)) or {}
+        lock = prev.get("assets", {}) or {}
     ok, skip, fail = [], [], []
     for a in man["assets"]:
         aid, cat, res = a["id"], a["category"], a.get("res", "2k")

@@ -18,13 +18,13 @@
 
 assets:
   # ---- trees (canopy) — LOD1/2 to keep worlds light (LOD0 made one tree 102 MB) ----
-  - {id: island_tree_01,   category: tree,  res: 2k, lod: 1, scale: 1.0, biomes: [temperate, wetland, coastal]}
-  - {id: island_tree_02,   category: tree,  res: 2k, lod: 1, scale: 1.0, biomes: [temperate]}
-  - {id: jacaranda_tree,   category: tree,  res: 2k, lod: 1, scale: 1.0, biomes: [temperate, wetland]}
-  - {id: quiver_tree_01,   category: tree,  res: 2k, lod: 1, scale: 1.0, biomes: [savanna]}
-  - {id: fir_tree_01,      category: tree,  res: 2k, lod: 1, scale: 1.0, biomes: [alpine, winter]}
-  - {id: pine_tree_01,     category: tree,  res: 2k, lod: 1, scale: 1.0, biomes: [alpine, winter]}
-  - {id: fir_sapling,      category: tree,  res: 1k, lod: 0, scale: 4.0, biomes: [alpine, winter]}
+  - {id: island_tree_01,   category: tree,  res: 1k, lod: 2, scale: 1.0, biomes: [temperate, wetland, coastal]}
+  - {id: island_tree_02,   category: tree,  res: 1k, lod: 2, scale: 1.0, biomes: [temperate]}
+  - {id: jacaranda_tree,   category: tree,  res: 1k, lod: 2, scale: 1.0, biomes: [temperate, wetland]}
+  - {id: quiver_tree_01,   category: tree,  res: 1k, lod: 2, scale: 1.0, biomes: [savanna]}
+  - {id: fir_tree_01,      category: tree,  res: 1k, lod: 2, scale: 1.0, biomes: [alpine, winter]}
+  - {id: pine_tree_01,     category: tree,  res: 1k, lod: 2, scale: 1.0, biomes: [alpine, winter]}
+  - {id: fir_sapling,      category: tree,  res: 1k, lod: 1, scale: 4.0, biomes: [alpine, winter]}
   - {id: dead_tree_trunk_02, category: tree, res: 1k, lod: 0, scale: 1.0, biomes: [winter, alpine]}
 
   # ---- rocks ----

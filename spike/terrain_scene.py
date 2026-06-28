@@ -46,13 +46,34 @@ pitch = math.atan2(cz - az, math.hypot(ax - cx, ay - cy))
 # top-down
 tz = maxz + 0.95 * ext
 
-# hero camera: a CLOSER, elevated 3/4 view (vs the far overview) so trees/rocks
-# read at scale while looking down ~30 deg keeps the ground green (a grazing,
-# near-horizontal view reflects the bright sky and washes the ground out). Elevated
-# placement is also robustly above the terrain -> the camera always renders.
-hx, hy = -0.20 * ext, -0.22 * ext
-hz = maxz + 0.16 * ext
-haim_x, haim_y, haim_z = 0.06 * ext, 0.04 * ext, (minz + maxz) / 2.0
+# hero camera: a GROUND-LEVEL robot-eye view among the vegetation (vs the aerial
+# overview) so trees/bushes tower in frame and the scene reads as a populated
+# environment, not a textured hill. Sample the terrain height under the eye and aim
+# so the camera sits ~3 m above real ground and looks slightly down across a
+# populated swath. HERO_* env vars allow quick reframing without code edits.
+def _terrain_z(qx, qy):
+    bz, best = minz, 1e18
+    for (x, y, z) in verts:
+        d = (x - qx) ** 2 + (y - qy) ** 2
+        if d < best:
+            best, bz = d, z
+    return bz
+
+hex_ = float(os.environ.get("HERO_EX", "-0.28"))
+hey_ = float(os.environ.get("HERO_EY", "-0.10"))
+hax_ = float(os.environ.get("HERO_AX", "0.05"))
+hay_ = float(os.environ.get("HERO_AY", "0.02"))
+heye = float(os.environ.get("HERO_EYE", "4.0"))
+hx, hy = hex_ * ext, hey_ * ext          # stand inside the field, off-centre
+haim_x, haim_y = hax_ * ext, hay_ * ext   # look toward the centre
+gz_eye = _terrain_z(hx, hy)
+gz_aim = _terrain_z(haim_x, haim_y)
+# Eye sits `heye` above the HIGHER of the cam-ground and aim-ground, so on steep
+# (mountainous) terrain the camera never ends up buried in / staring into a slope;
+# on gentle terrain it stays a few metres up -> a robot-eye view. Always looks
+# slightly down (eye above aim), so it never frames into a hillside.
+hz = max(gz_eye, gz_aim) + heye
+haim_z = gz_aim + 1.5
 hyaw = math.atan2(haim_y - hy, haim_x - hx)
 hpitch = math.atan2(hz - haim_z, math.hypot(haim_x - hx, haim_y - hy))
 

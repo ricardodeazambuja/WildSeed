@@ -1,0 +1,94 @@
+assets:
+  boulder_01:
+    category: rock
+    sha256: 605068ca49a1f22197942a14e59207e5697bd8c2d1ed960214864605b0a24ece
+    source: polyhaven:boulder_01
+  coast_rocks_01:
+    category: rock
+    sha256: 0546e3c858ed0ac31228944b5117609db0193b82b26d59ddccf0eab3e0f47877
+    source: polyhaven:coast_rocks_01
+  crystalline_iceplant:
+    category: bush
+    sha256: d2c65f5531c2d4dda90acfe757a4a94445bca4afb1d5cc4cb062ad6df2172de4
+    source: polyhaven:crystalline_iceplant
+  dead_tree_trunk_02:
+    category: tree
+    sha256: 9c38ee7e71b6fb51736b9900ad63d281d20e00121800624f70d9a7bb5e85adb1
+    source: polyhaven:dead_tree_trunk_02
+  fern_02:
+    category: bush
+    sha256: 8197399f73228b960f648d8e0845cdb20044d03ff945ec65b64602dab80a7dfb
+    source: polyhaven:fern_02
+  fir_sapling:
+    category: tree
+    sha256: c4e59b02bc327101ffc0eae083b363a1628babe4f40a9d94dd52fdd6d7c20e82
+    source: polyhaven:fir_sapling
+  fir_tree_01:
+    category: tree
+    sha256: 8e25f1d949bc4a43fd109dcf7ac691d320fb67b32e677a73f4751a747fe5e2d3
+    source: polyhaven:fir_tree_01
+  flower_gazania:
+    category: grass
+    sha256: 0df7b22643989249c7d434240408c0c890b7f1f440e9afce176178f16cef35eb
+    source: polyhaven:flower_gazania
+  grass_bermuda_01:
+    category: grass
+    sha256: 1ee3e91872e6b220c2967076efe784d03ff6c7b58ea3fb9e8d74f71cc09e7dc5
+    source: polyhaven:grass_bermuda_01
+  grass_medium_01:
+    category: grass
+    sha256: 918dcbcb83a94e1bb4e79b5764b270e772c417f24af4dc2be26a3eee53f44b5c
+    source: polyhaven:grass_medium_01
+  grass_medium_02:
+    category: grass
+    sha256: d31609203a80f080bf40eadc2e932f5e2fa171b122cb9844f7334acc66a4118d
+    source: polyhaven:grass_medium_02
+  island_tree_01:
+    category: tree
+    sha256: 0d832c8d6e9af0d10d4faf9295fb77db862e650ca2b70ccb9d44ee18ef713c86
+    source: polyhaven:island_tree_01
+  island_tree_02:
+    category: tree
+    sha256: 2c7f20e73e498881b8fdccdbaef4e99c9371379a0597b105f72009a79052b74e
+    source: polyhaven:island_tree_02
+  jacaranda_tree:
+    category: tree
+    sha256: 81bb71a80f70dc0fec43b98248757e7429188a8e474e0ba158d8486834d19685
+    source: polyhaven:jacaranda_tree
+  namaqualand_boulder_04:
+    category: rock
+    sha256: f6607edcba4d8d6585394d3c29bd0a30097c5248cbf3920c9bc0cec7c404489b
+    source: polyhaven:namaqualand_boulder_04
+  namaqualand_rocks_01:
+    category: rock
+    sha256: eb73e8253f603ef5f5a5eb41b47ffded4ed92ff3c60b24ef922528a981fe169d
+    source: polyhaven:namaqualand_rocks_01
+  pine_tree_01:
+    category: tree
+    sha256: c6ae137caed4ab9ecf43dfba6ecb20925e7ffd56f95e9ea01d98f680f7a0c6d6
+    source: polyhaven:pine_tree_01
+  quiver_tree_01:
+    category: tree
+    sha256: e886eb66be286a06128a43c0517a6b1ae7708cbbc9593de4e41196ab8a19702c
+    source: polyhaven:quiver_tree_01
+  rock_07:
+    category: rock
+    sha256: 0ea1c1eb3dd901efe87b8acd5a1cd9fda14cc610067a4b243a006c1ac9a4b415
+    source: polyhaven:rock_07
+  sand_rocks_small_01:
+    category: rock
+    sha256: 03fa136e33ce3d186e50dd9cfce1de2d62384d7d8c20c0878b06ed4106208adb
+    source: polyhaven:sand_rocks_small_01
+  shrub_01:
+    category: bush
+    sha256: 8c86daeca8a5715b0391ee281e95bc9541e33399b7b98de024177137dc9036d2
+    source: polyhaven:shrub_01
+  shrub_03:
+    category: bush
+    sha256: 2933f971859ca8e57255d7212e73e27889073a88605fef6f2140422e07981a45
+    source: polyhaven:shrub_03
+  wild_rooibos_bush:
+    category: bush
+    sha256: 0e286f3fed0abb1a2c59a5199165810240f9ff20f46e1f5378106cb1496b6767
+    source: polyhaven:wild_rooibos_bush
+note: sha256 of each normalized source .blend (CC0 Poly Haven)

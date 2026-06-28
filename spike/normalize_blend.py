@@ -103,30 +103,89 @@ if extra_scale != 1.0:
 print(f"NORMALIZED size x={mx[0]-mn[0]:.2f} y={mx[1]-mn[1]:.2f} z={(mx[2]-zmin):.2f} m "
       f"(x{extra_scale}) materials={[m.name for m in bpy.data.materials]}")
 
-# alpha->MASK wiring: for any material whose BSDF Alpha is linked (foliage opacity),
-# splice Math:Greater-Than(0.5) before BSDF.Alpha so Blender 4.2's glTF exporter
-# writes alphaMode=MASK. Materials with no alpha link are forced OPAQUE.
-for m in bpy.data.materials:
-    if not m.use_nodes or not m.node_tree:
-        continue
+# Foliage -> alphaMode=MASK. Poly Haven foliage materials wire transparency through a
+# custom node GROUP the glTF exporter can't read, so it defaults to alphaMode=BLEND ->
+# dense double-sided leaves form a dark depth-sort blob. Fix (generalises the proven
+# spike/normalize_island_tree.py): for foliage materials, REBUILD as a plain Principled
+# BSDF and splice the leaf alpha image through Math:Greater-Than(0.5) into Alpha. That
+# node pattern is what Blender 4.2's exporter reads as MASK. Solid materials (trunk/
+# branch/rock) keep their nodes and are just forced OPAQUE. See [[blender42-gltf-mask-foliage]].
+FOLIAGE_KW = ("leaf", "leaves", "foliage", "frond", "needle", "canopy", "grass",
+              "fern", "shrub", "bush", "flower", "plant", "twig", "blade")
+
+
+def collect_images(nt, seen=None):
+    seen = seen if seen is not None else set()
+    out = []
+    for n in nt.nodes:
+        if n.type == "TEX_IMAGE" and n.image:
+            out.append(n.image)
+        elif n.type == "GROUP" and n.node_tree and id(n.node_tree) not in seen:
+            seen.add(id(n.node_tree))
+            out += collect_images(n.node_tree, seen)
+    return out
+
+
+def classify(images):
+    alb = alpha = rough = nor = None
+    for im in images:
+        nm = im.name.lower()
+        if "nor" in nm and nor is None:
+            nor = im
+        elif "rough" in nm and rough is None:
+            rough = im
+        elif ("alpha" in nm or "opacity" in nm) and alpha is None:
+            alpha = im
+        elif (("diff" in nm or "albedo" in nm or "color" in nm or "_col" in nm)
+              and "arm" not in nm and alb is None):
+            alb = im
+    if alb is None:  # fallback: first image that isn't a known data map
+        for im in images:
+            nm = im.name.lower()
+            if not any(k in nm for k in ("nor", "rough", "alpha", "opacity", "ao",
+                                         "disp", "arm")):
+                alb = im
+                break
+    return alb, alpha, rough, nor
+
+
+def rebuild_foliage(m):
+    images = collect_images(m.node_tree)
+    alb, alpha, rough, nor = classify(images)
+    if alb is None:
+        return False
     nt = m.node_tree
-    bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
-    if bsdf is None:
-        continue
-    ain = bsdf.inputs["Alpha"]
-    if not ain.is_linked:
-        m.blend_method = "OPAQUE"
-        continue
-    src = ain.links[0].from_socket
-    if not (src.node.type == "MATH" and src.node.operation == "GREATER_THAN"):
-        for lk in list(ain.links):
-            nt.links.remove(lk)
-        clip = nt.nodes.new("ShaderNodeMath")
-        clip.operation = "GREATER_THAN"
-        clip.inputs[1].default_value = 0.5
-        clip.location = (src.node.location.x + 200, src.node.location.y - 150)
-        nt.links.new(src, clip.inputs[0])
-        nt.links.new(clip.outputs["Value"], ain)
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial"); out.location = (600, 0)
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled"); bsdf.location = (200, 0)
+    nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+
+    def tex(image, x, y, noncolor=False):
+        t = nt.nodes.new("ShaderNodeTexImage")
+        t.image = image
+        t.location = (x, y)
+        if noncolor:
+            image.colorspace_settings.name = "Non-Color"
+        return t
+
+    talb = tex(alb, -500, 200)
+    nt.links.new(talb.outputs["Color"], bsdf.inputs["Base Color"])
+    asrc = tex(alpha, -700, -120, noncolor=True).outputs["Color"] if alpha \
+        else talb.outputs["Alpha"]            # fall back to albedo's alpha channel
+    clip = nt.nodes.new("ShaderNodeMath")
+    clip.operation = "GREATER_THAN"
+    clip.inputs[1].default_value = 0.5
+    clip.location = (-300, -120)
+    nt.links.new(asrc, clip.inputs[0])
+    nt.links.new(clip.outputs["Value"], bsdf.inputs["Alpha"])
+    if rough:
+        nt.links.new(tex(rough, -500, -420, noncolor=True).outputs["Color"],
+                     bsdf.inputs["Roughness"])
+    if nor:
+        tn = tex(nor, -900, -700, noncolor=True)
+        nm = nt.nodes.new("ShaderNodeNormalMap"); nm.location = (-500, -700)
+        nt.links.new(tn.outputs["Color"], nm.inputs["Color"])
+        nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
     m.blend_method = "CLIP"
     m.alpha_threshold = 0.5
     m.use_backface_culling = False
@@ -134,7 +193,18 @@ for m in bpy.data.materials:
         m.surface_render_method = "DITHERED"
     except Exception:
         pass
-    print("ALPHA_MASK_WIRED:", m.name)
+    return True
+
+
+for m in bpy.data.materials:
+    if not m.use_nodes or not m.node_tree:
+        continue
+    is_foliage = any(k in m.name.lower() for k in FOLIAGE_KW)
+    if is_foliage and rebuild_foliage(m):
+        print("ALPHA_MASK_WIRED:", m.name)
+    else:
+        m.blend_method = "OPAQUE"               # solid geometry (trunk/branch/rock)
+        m.use_backface_culling = False
 
 try:
     bpy.ops.file.pack_all()
