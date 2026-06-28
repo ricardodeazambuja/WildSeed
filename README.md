@@ -62,9 +62,36 @@ forest3d generate --density '{"tree": 50, "rock": 10, "bush": 20}'
 forest3d launch
 ```
 
+## Procedural terrain & seeded scenarios
+
+Beyond meshing a fixed DEM, Forest3D can **synthesize** varied, seeded landforms —
+rolling hills, mountains, valleys, flatlands, basins→lakes, creeks — and randomize
+whole scenarios reproducibly (same `--seed` → same world) for VIO/lidar testing:
+
+```bash
+forest3d terraingen --preset lakeland --seed 7 -o dem/synth.tif   # synth landform
+forest3d terrain    --dem dem/synth.tif                           # mesh it
+forest3d ground     --mode patchy --biome grassland --auto-water --dem dem/synth.tif
+forest3d generate   --density '{"tree":35,"rock":12}' --seed 7    # populate
+```
+
+![demo scenarios](spike/scenarios_gallery.png)
+
+Five ready-made demo scenarios (two snow) — temperate hills, savanna flats,
+lakeland wetland, alpine snow, winter forest — with copy-paste commands and the
+randomization guide:
+
+- **[docs/TUTORIAL.md](docs/TUTORIAL.md)** — build & randomize a world in 5 minutes
+- **[docs/TERRAIN_GENERATOR.md](docs/TERRAIN_GENERATOR.md)** — `terraingen` reference (presets, all knobs, lakes)
+- **[docs/SCENARIOS.md](docs/SCENARIOS.md)** — the 5 demo scenarios, reproducible
+
+All demo assets are CC0 (Poly Haven / ambientCG); credits in
+[spike/ASSET_REGISTRY.md](spike/ASSET_REGISTRY.md).
+
 ## Features
 
 - **Terrain Generation**: DEM processing with resolution enhancement and Gaussian smoothing
+- **Procedural Terrain**: seeded synthesis of hills/mountains/valleys/lakes/creeks (`terraingen`)
 - **Asset Processing**: Automatic Blender to Gazebo conversion with optimized collision meshes
 - **Forest Population**: Intelligent procedural placement with natural clustering patterns
 - **Unified CLI**: Simple `forest3d` command with subcommands for each operation

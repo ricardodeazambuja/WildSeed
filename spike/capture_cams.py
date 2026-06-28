@@ -21,7 +21,7 @@ for c in cams:
     node.subscribe(Image, c, mk(c))
 
 t0 = time.time()
-while time.time() - t0 < 45 and not all(c in got for c in cams):
+while time.time() - t0 < 100 and not all(c in got for c in cams):
     time.sleep(0.3)
 
 for c in cams:

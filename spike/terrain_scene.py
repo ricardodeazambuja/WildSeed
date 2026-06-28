@@ -46,13 +46,13 @@ pitch = math.atan2(cz - az, math.hypot(ax - cx, ay - cy))
 # top-down
 tz = maxz + 0.95 * ext
 
-# low hero camera: stand low near a corner, eye ~3 m above the ground there, look
-# across the populated field toward the centre so trees/rocks read at human scale.
-hx, hy = -0.40 * ext, -0.30 * ext
-hgz = ground_z(hx, hy)
-hz = hgz + 3.0
-haim_x, haim_y = 0.18 * ext, 0.12 * ext
-haim_z = ground_z(haim_x, haim_y) + 6.0
+# hero camera: a CLOSER, elevated 3/4 view (vs the far overview) so trees/rocks
+# read at scale while looking down ~30 deg keeps the ground green (a grazing,
+# near-horizontal view reflects the bright sky and washes the ground out). Elevated
+# placement is also robustly above the terrain -> the camera always renders.
+hx, hy = -0.20 * ext, -0.22 * ext
+hz = maxz + 0.16 * ext
+haim_x, haim_y, haim_z = 0.06 * ext, 0.04 * ext, (minz + maxz) / 2.0
 hyaw = math.atan2(haim_y - hy, haim_x - hx)
 hpitch = math.atan2(hz - haim_z, math.hypot(haim_x - hx, haim_y - hy))
 

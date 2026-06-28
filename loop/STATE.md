@@ -22,12 +22,12 @@ Branch `feature/realism-convert-fork`. DO NOT push.
       FALLBACK if foliage conversion fails: use island_tree_01 everywhere + snow
       ground for snow scenes. Curate models/ to realistic-only (move primitives to
       models/_primitives_aside/ so generate doesn't place them).
-- [~] PHASE 3b (in progress, re-rendering w/ hero cam) — 5 scenarios (terrain preset + biome + seeded placement + cameras):
+- [x] PHASE 3b — 5 scenarios rendered (hero + overview galleries), 2 snow, lakes visible — 5 scenarios (terrain preset + biome + seeded placement + cameras):
       e.g. (1) temperate rolling forest (hilly+grassland), (2) arid (flat/valley+
       desert), (3) lakeland wetland (lakeland+grassland+per-basin water),
       (4) ALPINE SNOW (mountainous+snow), (5) WINTER forest (hilly/valley+snow).
       Render hero image(s) each. Compose gallery.
-- [~] PHASE 3c docs written (TUTORIAL.md, SCENARIOS.md) — docs/SCENARIOS.md + docs/TUTORIAL.md (install/docker, pipeline,
+- [x] PHASE 3c — TUTORIAL.md, SCENARIOS.md, README section, galleries committed — docs/SCENARIOS.md + docs/TUTORIAL.md (install/docker, pipeline,
       randomization via --seed, per-scenario recipes). Update ASSET_REGISTRY credits.
 - [ ] PHASE 3d — send gallery + tutorial to user.
 - [ ] PHASE 4 — CLEANUP (user asked): remove stale files / old plans (e.g.
