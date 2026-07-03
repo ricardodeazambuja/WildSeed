@@ -61,8 +61,12 @@ whole scenarios reproducibly (same `--seed` → same world) for VIO/lidar testin
 **One command, one master seed** — `wildseed scenario` chains every stage
 (landform → mesh → ground material → water → model placement), deriving each
 stage's seed from the master seed and drawing the biome, terrain shape and
-densities from per-biome envelopes. The full resolved recipe is written to
-`worlds/scenario_<seed>.yaml`, so any world reproduces from its seed alone:
+densities from per-biome envelopes. Eight biomes: six wilderness (temperate,
+savanna, wetland, alpine, winter, coastal) + two structured plantations
+(`orchard`, `vineyard` — repetitive rows, the loop-closure stress test). Every
+world ships with `scenario_<seed>.yaml` (the full resolved recipe — any world
+reproduces from its seed alone) and `scenario_<seed>.instances.json`
+(per-instance ground truth: model, category, pose, scale):
 
 ```bash
 wildseed scenario --seed 42                      # fully random, byte-reproducible
@@ -176,6 +180,13 @@ them before the demo/realism pipeline surprises you.
 - **Procedural Terrain**: seeded synthesis of hills/mountains/valleys/lakes/creeks (`terraingen`)
 - **Asset Processing**: Automatic Blender to Gazebo conversion with optimized collision meshes
 - **Forest Population**: Intelligent procedural placement with natural clustering patterns
+- **Row Plantations**: orchards/vineyards — structured, repetitive rows (spacing, jitter,
+  missing plants, waviness), the loop-closure stress test wilderness scatter can't produce
+- **Ground Truth**: every world ships a `.instances.json` sidecar (model, category, pose,
+  scale per placed instance) + per-category `laser_retro` labels so lidar intensity doubles
+  as a semantic class channel (experimental)
+- **Passable Understory**: robots drive through grass/bushes (no physics blow-ups) while
+  lidar still returns hits from them
 - **Unified CLI**: Simple `wildseed` command with subcommands for each operation
 - **Docker Support**: Pre-built images with GDAL for easy deployment
 
@@ -460,6 +471,15 @@ orchestrator, the manifest-driven CC0 asset pipeline, the image-level realism me
 harness, and the reproducibility guarantees (pinned Docker, sha256-locked assets,
 byte-identical worlds per seed). Documents under [docs/history/](docs/history/) and
 the realism reports predate the rename and refer to the project as Forest3D.
+
+Several capabilities are adapted from
+**[CropCraft](https://github.com/ricardodeazambuja/cropcraft)** (INRAE,
+Apache-2.0), a crop-field generator for agricultural robotics: the structured
+row-planting engine (orchard/vineyard biomes, `--rows`), the per-instance
+ground-truth export, per-category `laser_retro` semantic lidar labels, and
+passable-understory collisions (`collide_without_contact`). No CropCraft code
+or assets are bundled — the ideas were reimplemented against WildSeed's
+terrain-following, master-seeded pipeline.
 
 ## Asset credits
 

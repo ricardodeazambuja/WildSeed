@@ -31,8 +31,34 @@ def run(cmd, **kw):
     return p
 
 
-def render(tag, water):
+def rows_hero_env(spec):
+    """For structured (rows) scenarios, aim the hero cam INTO the planted
+    block: stand just off the rows centroid looking across it, instead of the
+    default boulder-framing (which happily frames a rock in an empty corner).
+    Centroid comes from the ground-truth instances sidecar."""
+    if not spec.get("rows"):
+        return {}
+    import json
+    gt_path = f"{WS}/worlds/scenario_{spec['seed']}.instances.json"
+    if not os.path.exists(gt_path):
+        return {}
+    cats = set(spec["rows"])
+    pts = [(i["pose"]["x"], i["pose"]["y"])
+           for i in json.load(open(gt_path))["instances"] if i["category"] in cats]
+    if not pts:
+        return {}
+    cx = sum(p[0] for p in pts) / len(pts)
+    cy = sum(p[1] for p in pts) / len(pts)
+    ext = spec["size"] * spec["pixel_m"]
+    off = 0.55 * float(list(spec["rows"].values())[0].get("field_size", 60))
+    return {"HERO_EX": (cx - off) / ext, "HERO_EY": (cy - off * 0.4) / ext,
+            "HERO_AX": cx / ext, "HERO_AY": cy / ext, "HERO_EYE": 3.5}
+
+
+def render(tag, water, extra_env=None):
     env = dict(os.environ, FOREST="1", **({"WATER": "1"} if water else {}))
+    if extra_env:
+        env.update({k: str(v) for k, v in extra_env.items()})
     run(["python3", f"{WS}/tools/terrain_scene.py"], env=env)
     g = subprocess.Popen(["gz", "sim", "-s", "-r", "--headless-rendering",
                           f"{WS}/worlds/terrain_scene.world"],
@@ -61,7 +87,7 @@ for seed in SEEDS:
     specs.append(spec)
     # terrain_scene grafts from forest_world.world; point it at this scenario
     shutil.copy(f"{WS}/worlds/scenario_{seed}.world", f"{WS}/worlds/forest_world.world")
-    render(str(seed), water=spec["outputs"]["lakes"] > 0)
+    render(str(seed), water=spec["outputs"]["lakes"] > 0, extra_env=rows_hero_env(spec))
 
 # compose gallery: rows = seeds, cols = hero | oblique
 tiles, W, H = [], 900, 560

@@ -38,11 +38,27 @@ wildseed scenario --seed 7  --density-scale 0.5  # sparse variant of seed 7
 wildseed scenario --seed 7  --dry-run            # inspect the recipe, build nothing
 ```
 
-Outputs: `worlds/scenario_<seed>.world` plus `worlds/scenario_<seed>.yaml` — the
-latter records every resolved parameter (stage seeds, knobs, densities, palette),
-so a failing VIO run can name the exact world it saw and anyone can regenerate it
-byte-identically from the seed. The mapping seed→world is stable within a
-`scenario_format` version (bumped if the envelopes or draw order ever change).
+Eight biomes: the six wilderness ones below plus two **structured plantations**
+(CropCraft-inspired) — `orchard` (tree rows on grassland) and `vineyard` (vine
+rows on dry ground). Structured biomes are deliberately monoculture and
+repetitive — the hardest case for loop closure / place recognition. Their row
+geometry (row/plant spacing, bounded field size, field rotation, lateral
+jitter, missing-plant dropout, row waviness) is drawn from per-biome envelopes
+and recorded in `scenario.yaml` like every other knob. The same engine is
+available manually: `wildseed generate --rows '{"tree": {"row_distance": 6,
+"plant_distance": 4, "field_size": 80, "missing": 0.1}}'`.
+
+Outputs: `worlds/scenario_<seed>.world`, `worlds/scenario_<seed>.instances.json`
+— per-instance **ground truth** (name, model id, category, pose xyzrpy, scale
+for every placed object, in placement order) — plus `worlds/scenario_<seed>.yaml`,
+which records every resolved parameter (stage seeds, knobs, densities, rows,
+palette), so a failing VIO run can name the exact world it saw and anyone can
+regenerate it byte-identically from the seed. The mapping seed→world is stable
+within a `scenario_format` version (bumped if the envelopes or draw order ever
+change). Converted models also carry per-category `laser_retro` (tree=1 bush=2
+rock=3 grass=4, ground 0) so lidar intensity doubles as a class label, and
+grass/bush collisions are passable (`collide_without_contact`) so robots drive
+through understory while still seeing it.
 
 ## Adjusting density (trees, rocks, bushes, grass)
 
