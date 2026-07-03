@@ -101,6 +101,11 @@ class WorldPopulator:
         self.progress_callback = progress_callback
         self.seed = seed
         self.allowed_variants = variants
+        # Instance RNG (never the global np.random state): placement stays
+        # reproducible even if other code — ours or a library's — consumes the
+        # global stream. Re-created per create_forest_world() call when seeded,
+        # so repeated builds from one populator are identical too.
+        self.rng = np.random.default_rng(seed)
 
         # Store (x, y, z, scale) for each placed model
         self.placed_models: Dict[str, List[Tuple[float, float, float, float]]] = {
@@ -156,7 +161,10 @@ class WorldPopulator:
             category_path = self.models_path / category
             if category_path.exists():
                 variants[category] = []
-                for d in category_path.iterdir():
+                # Sorted: filesystem iteration order is OS/filesystem-dependent,
+                # and the variant list feeds the seeded RNG — unsorted, the same
+                # seed could place different species on different machines.
+                for d in sorted(category_path.iterdir(), key=lambda p: p.name):
                     if d.is_dir() and not d.name.startswith("."):
                         variants[category].append(d.name)
                 if self.allowed_variants is not None and category in self.allowed_variants:
@@ -184,7 +192,7 @@ class WorldPopulator:
         variants = self.model_variants.get(category, [])
         if not variants:
             return None
-        return np.random.choice(variants)
+        return self.rng.choice(variants)
 
     def _get_cross_distance(self, cat1: str, cat2: str) -> float:
         """Get minimum distance between two categories.
@@ -301,27 +309,27 @@ class WorldPopulator:
 
         for _ in range(max_attempts):
             x, y = None, None
-            is_edge = np.random.random() < self.ZONE_WEIGHTS[category]["edge"]
+            is_edge = self.rng.random() < self.ZONE_WEIGHTS[category]["edge"]
 
             if category == "sand":
                 if is_edge:
-                    edge = np.random.choice(["top", "bottom", "left", "right"])
+                    edge = self.rng.choice(["top", "bottom", "left", "right"])
                     if edge in ["top", "bottom"]:
-                        x = np.random.uniform(min_x + margin, max_x - margin)
+                        x = self.rng.uniform(min_x + margin, max_x - margin)
                         y = max_y - margin if edge == "top" else min_y + margin
-                        y += np.random.uniform(-1, 1)
+                        y += self.rng.uniform(-1, 1)
                     else:
                         x = max_x - margin if edge == "right" else min_x + margin
-                        x += np.random.uniform(-1, 1)
-                        y = np.random.uniform(min_y + margin, max_y - margin)
+                        x += self.rng.uniform(-1, 1)
+                        y = self.rng.uniform(min_y + margin, max_y - margin)
                 else:
-                    x = np.random.uniform(min_x + margin, max_x - margin)
-                    y = np.random.uniform(min_y + margin, max_y - margin)
+                    x = self.rng.uniform(min_x + margin, max_x - margin)
+                    y = self.rng.uniform(min_y + margin, max_y - margin)
 
             elif category == "tree":
-                if self.placed_models["tree"] and np.random.random() < 0.7:
+                if self.placed_models["tree"] and self.rng.random() < 0.7:
                     # Cluster near existing trees
-                    base_idx = np.random.randint(len(self.placed_models["tree"]))
+                    base_idx = self.rng.integers(len(self.placed_models["tree"]))
                     base_tree = self.placed_models["tree"][base_idx]
                     base_scale = base_tree[3]
 
@@ -329,15 +337,15 @@ class WorldPopulator:
                     min_cluster_dist = self.MIN_DISTANCES["tree"] * max(scale, base_scale)
                     max_cluster_dist = min_cluster_dist * 2
 
-                    radius = np.random.uniform(min_cluster_dist, max_cluster_dist)
-                    angle = np.random.uniform(0, 2 * np.pi)
+                    radius = self.rng.uniform(min_cluster_dist, max_cluster_dist)
+                    angle = self.rng.uniform(0, 2 * np.pi)
                     x = base_tree[0] + radius * np.cos(angle)
                     y = base_tree[1] + radius * np.sin(angle)
                 else:
                     # Place in open area, avoiding sand
                     for _ in range(10):
-                        x = np.random.uniform(min_x + margin, max_x - margin)
-                        y = np.random.uniform(min_y + margin, max_y - margin)
+                        x = self.rng.uniform(min_x + margin, max_x - margin)
+                        y = self.rng.uniform(min_y + margin, max_y - margin)
 
                         # Check distance from sand areas
                         sand_clear = all(
@@ -352,52 +360,52 @@ class WorldPopulator:
 
             elif category == "rock":
                 if is_edge:
-                    edge = np.random.choice(["top", "bottom", "left", "right"])
-                    edge_variance = np.random.uniform(-2, 2)
+                    edge = self.rng.choice(["top", "bottom", "left", "right"])
+                    edge_variance = self.rng.uniform(-2, 2)
                     if edge in ["top", "bottom"]:
-                        x = np.random.uniform(min_x + margin, max_x - margin)
+                        x = self.rng.uniform(min_x + margin, max_x - margin)
                         y = (max_y - margin if edge == "top" else min_y + margin) + edge_variance
                     else:
                         x = (max_x - margin if edge == "right" else min_x + margin) + edge_variance
-                        y = np.random.uniform(min_y + margin, max_y - margin)
+                        y = self.rng.uniform(min_y + margin, max_y - margin)
                 else:
-                    x = np.random.uniform(min_x + margin, max_x - margin)
-                    y = np.random.uniform(min_y + margin, max_y - margin)
+                    x = self.rng.uniform(min_x + margin, max_x - margin)
+                    y = self.rng.uniform(min_y + margin, max_y - margin)
 
             elif category == "bush":
-                if np.random.random() < 0.6 and self.placed_models["tree"]:
+                if self.rng.random() < 0.6 and self.placed_models["tree"]:
                     # Place near trees
-                    base_idx = np.random.randint(len(self.placed_models["tree"]))
+                    base_idx = self.rng.integers(len(self.placed_models["tree"]))
                     base_tree = self.placed_models["tree"][base_idx]
                     base_scale = base_tree[3]
 
                     # Bushes cluster closer to trees but not too close
                     min_dist = self._get_cross_distance("bush", "tree") * max(scale, base_scale)
-                    radius = np.random.uniform(min_dist, min_dist + 3.0)
-                    angle = np.random.uniform(0, 2 * np.pi)
+                    radius = self.rng.uniform(min_dist, min_dist + 3.0)
+                    angle = self.rng.uniform(0, 2 * np.pi)
                     x = base_tree[0] + radius * np.cos(angle)
                     y = base_tree[1] + radius * np.sin(angle)
                 else:
-                    x = np.random.uniform(min_x + margin, max_x - margin)
-                    y = np.random.uniform(min_y + margin, max_y - margin)
+                    x = self.rng.uniform(min_x + margin, max_x - margin)
+                    y = self.rng.uniform(min_y + margin, max_y - margin)
 
             elif category == "grass":
                 # Grass can go almost anywhere but prefers areas with trees/bushes
-                if np.random.random() < 0.5 and (self.placed_models["tree"] or self.placed_models["bush"]):
+                if self.rng.random() < 0.5 and (self.placed_models["tree"] or self.placed_models["bush"]):
                     # Place near vegetation
                     all_vegetation = self.placed_models["tree"] + self.placed_models["bush"]
-                    base = all_vegetation[np.random.randint(len(all_vegetation))]
-                    radius = np.random.uniform(1.0, 5.0)
-                    angle = np.random.uniform(0, 2 * np.pi)
+                    base = all_vegetation[self.rng.integers(len(all_vegetation))]
+                    radius = self.rng.uniform(1.0, 5.0)
+                    angle = self.rng.uniform(0, 2 * np.pi)
                     x = base[0] + radius * np.cos(angle)
                     y = base[1] + radius * np.sin(angle)
                 else:
-                    x = np.random.uniform(min_x + margin, max_x - margin)
-                    y = np.random.uniform(min_y + margin, max_y - margin)
+                    x = self.rng.uniform(min_x + margin, max_x - margin)
+                    y = self.rng.uniform(min_y + margin, max_y - margin)
 
             else:
-                x = np.random.uniform(min_x + margin, max_x - margin)
-                y = np.random.uniform(min_y + margin, max_y - margin)
+                x = self.rng.uniform(min_x + margin, max_x - margin)
+                y = self.rng.uniform(min_y + margin, max_y - margin)
 
             # Validate position
             if x is None or y is None:
@@ -414,13 +422,13 @@ class WorldPopulator:
 
             # Category-specific height adjustments
             if category == "sand":
-                z += np.random.uniform(-0.2, 0)
+                z += self.rng.uniform(-0.2, 0)
             elif category == "grass":
-                z += np.random.uniform(-0.05, 0.05)
+                z += self.rng.uniform(-0.05, 0.05)
             elif category == "rock":
-                z += np.random.uniform(-0.1, 0.1)
+                z += self.rng.uniform(-0.1, 0.1)
             else:
-                z += np.random.uniform(-0.08, 0.08)
+                z += self.rng.uniform(-0.08, 0.08)
 
             # Store position with scale
             self.placed_models[category].append((x, y, z, scale))
@@ -479,11 +487,8 @@ class WorldPopulator:
         """
         from forest3d.utils.sdf import create_world_base, write_world_file
 
-        # Seed the global RNG so placement is reproducible. forest.py uses the
-        # global np.random.* throughout, so a single seed call here makes the
-        # whole world deterministic for a given seed.
         if self.seed is not None:
-            np.random.seed(self.seed)
+            self.rng = np.random.default_rng(self.seed)
             logger.info(f"Placement seeded with seed={self.seed} (reproducible)")
 
         # Reset placed models
@@ -544,7 +549,7 @@ class WorldPopulator:
                         continue
 
                     # Generate scale FIRST (needed for distance calculations)
-                    scale = np.random.uniform(*self.SCALE_RANGES[category])
+                    scale = self.rng.uniform(*self.SCALE_RANGES[category])
 
                     # Get position considering scale
                     position = self._get_random_position(terrain_mesh, category, scale)
@@ -560,24 +565,24 @@ class WorldPopulator:
                     # Category-specific rotations
                     if category == "sand":
                         roll = pitch = 0
-                        yaw = np.random.uniform(0, 2 * np.pi)
+                        yaw = self.rng.uniform(0, 2 * np.pi)
                     elif category == "tree":
                         # Slight tilt for natural look
-                        roll = np.random.uniform(-0.05, 0.05)
-                        pitch = np.random.uniform(-0.05, 0.05)
-                        yaw = np.random.uniform(0, 2 * np.pi)
+                        roll = self.rng.uniform(-0.05, 0.05)
+                        pitch = self.rng.uniform(-0.05, 0.05)
+                        yaw = self.rng.uniform(0, 2 * np.pi)
                     elif category == "rock":
                         # Rocks can have more tilt
-                        roll = np.random.uniform(-0.15, 0.15)
-                        pitch = np.random.uniform(-0.15, 0.15)
-                        yaw = np.random.uniform(0, 2 * np.pi)
+                        roll = self.rng.uniform(-0.15, 0.15)
+                        pitch = self.rng.uniform(-0.15, 0.15)
+                        yaw = self.rng.uniform(0, 2 * np.pi)
                     elif category == "bush":
-                        roll = np.random.uniform(-0.03, 0.03)
-                        pitch = np.random.uniform(-0.03, 0.03)
-                        yaw = np.random.uniform(0, 2 * np.pi)
+                        roll = self.rng.uniform(-0.03, 0.03)
+                        pitch = self.rng.uniform(-0.03, 0.03)
+                        yaw = self.rng.uniform(0, 2 * np.pi)
                     else:  # grass
                         roll = pitch = 0
-                        yaw = np.random.uniform(0, 2 * np.pi)
+                        yaw = self.rng.uniform(0, 2 * np.pi)
 
                     # Add model to world
                     include = ET.SubElement(world, "include")
