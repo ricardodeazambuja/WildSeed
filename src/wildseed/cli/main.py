@@ -65,6 +65,7 @@ from wildseed.cli.launch import launch
 from wildseed.cli.ground import ground
 from wildseed.cli.scenario import scenario
 from wildseed.cli.randomize import randomize
+from wildseed.cli.weather import weather
 
 main.add_command(terrain)
 main.add_command(terraingen)
@@ -74,6 +75,7 @@ main.add_command(launch)
 main.add_command(ground)
 main.add_command(scenario)
 main.add_command(randomize)
+main.add_command(weather)
 
 
 if __name__ == "__main__":
