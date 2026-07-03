@@ -6,6 +6,11 @@ ground materials, lakes, and hundreds of placed CC0 plants and rocks — and eve
 world is **reproducible from a single master seed**, so a failing odometry run
 can name the exact world it saw and anyone can regenerate it.
 
+**Scope: worlds only.** Robots, sensors and autonomy stacks are deliberately out of
+scope and live in a separate repository — WildSeed generates the environments they
+are spawned into. (The only sensor-adjacent piece here is a printable lens-flare
+camera-plugin snippet, see `wildseed weather --show-lens-flare-snippet`.)
+
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
@@ -187,6 +192,17 @@ them before the demo/realism pipeline surprises you.
   as a semantic class channel (experimental)
 - **Passable Understory**: robots drive through grass/bushes (no physics blow-ups) while
   lidar still returns hits from them
+- **Density-Map Placement**: steer vegetation layout with a grayscale image
+  (white=dense, black=never) instead of uniform randomness — `generate --density-maps`
+  ([docs](docs/DOMAIN_RANDOMIZATION.md))
+- **Texture Domain Randomization**: seeded recolouring of model textures
+  (`wildseed randomize`, alpha cutouts preserved) and ground (`--hsv-jitter`, plus a fully
+  procedural unrealistic `--mode wild`) ([docs](docs/DOMAIN_RANDOMIZATION.md))
+- **Procedural Assets**: `wildseed assetgen` synthesizes seeded parametric rocks, boulders,
+  trees, conifers, bushes and grass in headless Blender — tiny models, no downloads
+  ([docs](docs/DOMAIN_RANDOMIZATION.md))
+- **Weather**: `wildseed weather` presets — overcast, fog, rain, snow, sun glare
+  (particle emitters + sun/scene rewrite, idempotent) ([docs](docs/DOMAIN_RANDOMIZATION.md))
 - **Unified CLI**: Simple `wildseed` command with subcommands for each operation
 - **Docker Support**: Pre-built images with GDAL for easy deployment
 
