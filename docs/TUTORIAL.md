@@ -10,11 +10,13 @@ same `--seed` reproduces the same world; change it for a new one.
 
 ## 0. The one-liner mental model
 
-```
-terraingen  →  terrain   →  ground        →  generate
- landform       mesh+UVs     PBR ground       place trees/rocks
- (GeoTIFF)      (models/      (+ optional      (worlds/forest_world.world)
-                 ground)       water)
+```mermaid
+flowchart LR
+    tg["terraingen<br/><i>landform (GeoTIFF)</i>"]
+    t["terrain<br/><i>mesh + UVs (models/ground)</i>"]
+    g["ground<br/><i>PBR ground + optional water</i>"]
+    gen["generate<br/><i>place trees/rocks<br/>(worlds/forest_world.world)</i>"]
+    tg --> t --> g --> gen
 ```
 
 Each step writes into `models/` (and the last into `worlds/`); each is one CLI call.

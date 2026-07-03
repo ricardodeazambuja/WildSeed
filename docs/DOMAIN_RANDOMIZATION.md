@@ -7,6 +7,14 @@ randomized world can be regenerated exactly.
 
 Four independent axes of variation, composable in any combination:
 
+```mermaid
+flowchart LR
+    A["density maps<br/><i>generate --density-maps</i>"] --> W(["seeded world"])
+    B["texture randomization<br/><i>randomize / ground --hsv-jitter | --mode wild</i>"] --> W
+    C["procedural assets<br/><i>assetgen</i>"] --> W
+    D["weather<br/><i>weather -p rain|snow|fog|sunglare</i>"] --> W
+```
+
 | Axis | Command | What varies |
 |---|---|---|
 | WHERE things grow | `wildseed generate --density-maps` | spatial layout from a grayscale image |

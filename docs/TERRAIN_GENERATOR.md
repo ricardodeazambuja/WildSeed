@@ -7,9 +7,13 @@ regenerated exactly); a new seed gives a new world.
 
 It writes a **GeoTIFF DEM**, which feeds the existing, proven pipeline unchanged:
 
-```
-wildseed terraingen  →  wildseed terrain  →  wildseed ground  →  wildseed generate
-   (synth DEM)            (mesh + UVs)         (PBR ground)        (place trees/rocks)
+```mermaid
+flowchart LR
+    tg["wildseed terraingen<br/><i>synth DEM</i>"]
+    te["wildseed terrain<br/><i>mesh + UVs</i>"]
+    gr["wildseed ground<br/><i>PBR ground</i>"]
+    ge["wildseed generate<br/><i>place trees/rocks</i>"]
+    tg --> te --> gr --> ge
 ```
 
 ## Quick start (Docker, GPU)

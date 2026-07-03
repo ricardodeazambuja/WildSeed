@@ -24,15 +24,17 @@ identical world, always.*
 
 WildSeed follows a 4-step pipeline to generate simulation environments:
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   1. TERRAIN    │     │   2. CONVERT    │     │   3. GENERATE   │     │   4. LAUNCH     │
-│                 │     │                 │     │                 │     │                 │
-│  DEM (GeoTIFF)  │────►│ Blender Assets  │────►│  Place Models   │────►│ Open Gazebo     │
-│       ↓         │     │       ↓         │     │       ↓         │     │       ↓         │
-│  models/ground/ │     │ models/{tree,   │     │ worlds/forest_  │     │  Simulation     │
-│                 │     │  rock,bush,...} │     │    world.world  │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘     └─────────────────┘
+```mermaid
+flowchart LR
+    dem[/"DEM (GeoTIFF)"/] --> terrain["1. wildseed terrain"]
+    blend[/"Blender assets (.blend)"/] --> convert["2. wildseed convert"]
+    terrain --> ground[("models/ground/")]
+    convert --> models[("models/tree, rock,<br/>bush, grass, ...")]
+    ground --> generate["3. wildseed generate"]
+    models --> generate
+    generate --> world[("worlds/forest_world.world")]
+    world --> launch["4. wildseed launch"]
+    launch --> gz(["Gazebo simulation"])
 ```
 
 | Step | Command | Input | Output |

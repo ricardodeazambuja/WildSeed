@@ -31,6 +31,23 @@ demos were tuned in — see `BIOME_SPACE` in `src/wildseed/core/scenario.py`), r
 calls for it), and constrains species to the biome's palette from
 `assets/manifest.yaml`.
 
+```mermaid
+flowchart TD
+    M(["--seed N"]) --> SS["SeedSequence(N).spawn(4)"]
+    SS --> P["param stream:<br/>biome, terrain preset + knobs,<br/>densities, row specs"]
+    SS --> TGS["terraingen seed"]
+    SS --> GRS["ground seed"]
+    SS --> PLS["placement seed"]
+    P --> Y[("scenario_N.yaml<br/>full resolved recipe")]
+    TGS --> A["wildseed terraingen"]
+    A --> B["wildseed terrain"]
+    GRS --> C["wildseed ground<br/>+ per-basin water"]
+    B --> C
+    PLS --> D["wildseed generate<br/>palette-constrained"]
+    C --> D
+    D --> W[("worlds/scenario_N.world<br/>+ .instances.json")]
+```
+
 ```bash
 wildseed scenario --seed 42                      # random biome + everything else
 wildseed scenario --seed 42 --biome alpine       # fix the biome, randomize the rest
