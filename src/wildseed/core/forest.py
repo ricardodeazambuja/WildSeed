@@ -9,6 +9,7 @@ import numpy as np
 from stl import mesh
 
 from wildseed.config.schema import DensityConfig
+from wildseed.core.rig import add_label_plugin
 
 logger = logging.getLogger("wildseed.forest")
 
@@ -262,6 +263,9 @@ class WorldPopulator:
         ET.SubElement(include, "pose").text = (
             f"{x:.4f} {y:.4f} {z:.4f} {roll:.4f} {pitch:.4f} {yaw:.4f}")
         ET.SubElement(include, "scale").text = f"{scale:.3f} {scale:.3f} {scale:.3f}"
+        # Per-category class label: segmentation cameras label these pixels
+        # with the same id laser_retro uses for lidar intensity (see core/rig.py)
+        add_label_plugin(include, category)
         # float()/str() casts: rng draws are numpy scalars, which round()
         # preserves and json.dumps rejects.
         self.instances.append({
@@ -646,6 +650,8 @@ class WorldPopulator:
             self,
             density_config: Optional[Dict[str, int]] = None,
             rows_config: Optional[Dict[str, Dict]] = None,
+            rig_config=None,
+            rig_pose: Optional[Tuple[float, ...]] = None,
     ) -> Path:
         """Create forest world with placed models.
 
@@ -654,6 +660,12 @@ class WorldPopulator:
             rows_config: Optional dict of category -> row spec (see _place_rows).
                 A category with a row spec is planted in structured rows and
                 skipped by the density scatter.
+            rig_config: Optional RigConfig. When given, the sensor rig model is
+                (re)generated under models/, included in the world, and the
+                world gains the sensor system plugins + spherical coordinates
+                (docs/SENSOR_RIG_PLAN.md Phase 1).
+            rig_pose: Optional (x, y, z, roll, pitch, yaw) for the rig. Default:
+                terrain centre, 25 m above ground.
 
         Returns:
             Path to created world file.
@@ -698,6 +710,7 @@ class WorldPopulator:
         ET.SubElement(terrain, "uri").text = "model://ground"
         ET.SubElement(terrain, "name").text = "terrain"
         ET.SubElement(terrain, "pose").text = "0 0 0 0 0 0"
+        add_label_plugin(terrain, "ground")
 
         terrain_mesh = self._get_terrain_mesh()
 
@@ -790,6 +803,22 @@ class WorldPopulator:
                     continue
 
             logger.info(f"  {category}: placed {category_placed}/{count} (failed: {category_failed})")
+
+        # Sensor rig (opt-in): regenerate the model, include it, and inject the
+        # world-level sensor requirements (plugins + spherical coordinates)
+        if rig_config is not None:
+            from wildseed.core.rig import (add_rig_include,
+                                           add_world_sensor_requirements,
+                                           write_rig_model)
+            add_world_sensor_requirements(world)
+            write_rig_model(rig_config, self.models_path)
+            if rig_pose is None:
+                cx = float((terrain_mesh.x.min() + terrain_mesh.x.max()) / 2)
+                cy = float((terrain_mesh.y.min() + terrain_mesh.y.max()) / 2)
+                cz = self._sample_terrain_height(terrain_mesh, cx, cy) + 25.0
+                rig_pose = (cx, cy, cz, 0.0, 0.0, 0.0)
+            add_rig_include(world, rig_config, tuple(rig_pose))
+            logger.info(f"Sensor rig included at pose {rig_pose}")
 
         # Save the world file
         output_path = self.worlds_path / "forest_world.world"

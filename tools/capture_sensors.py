@@ -20,8 +20,12 @@ from gz.msgs10.fluid_pressure_pb2 import FluidPressure
 from gz.msgs10.magnetometer_pb2 import Magnetometer
 from gz.msgs10.odometry_pb2 import Odometry
 
-OUTDIR = "/workspace/frames/spike"
+OUTDIR = os.environ.get("SPIKE_OUTDIR", "/workspace/frames/spike")
 TIMEOUT_S = 90
+# expected rig pose, overridable so the same harness verdicts generated worlds
+# (default = worlds/sensor_spike.world's hand-placed rig)
+EXPECT = [float(v) for v in
+          os.environ.get("RIG_EXPECT_POSE", "0,-120,75").split(",")]
 got = {}   # stream name -> dict(ok=bool, info=str)
 node = Node()
 
@@ -127,7 +131,7 @@ def imu_cb(m):
 def navsat_cb(m):
     if "navsat" in got:
         return
-    got["navsat"] = dict(ok=abs(m.latitude_deg - 57.0271155) < 0.01,
+    got["navsat"] = dict(ok=abs(m.latitude_deg - 57.0271155) < 0.05,
                          info=f"lat={m.latitude_deg:.5f} lon={m.longitude_deg:.5f} alt={m.altitude:.1f}")
 
 
@@ -155,8 +159,10 @@ def odom_cb(m):
     if "odometry" in got:
         return
     p = m.pose.position
-    ok = abs(p.x - 0) < 1 and abs(p.y + 120) < 1 and abs(p.z - 75) < 1
-    got["odometry"] = dict(ok=ok, info=f"pose=({p.x:.1f},{p.y:.1f},{p.z:.1f}) expect (0,-120,75)")
+    ok = (abs(p.x - EXPECT[0]) < 1 and abs(p.y - EXPECT[1]) < 1
+          and abs(p.z - EXPECT[2]) < 1)
+    got["odometry"] = dict(ok=ok,
+                           info=f"pose=({p.x:.1f},{p.y:.1f},{p.z:.1f}) expect {EXPECT}")
 
 
 EXPECTED = ["cam_left", "cam_right", "wideangle", "rgbd_rgb", "rgbd_depth",

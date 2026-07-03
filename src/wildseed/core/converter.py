@@ -332,11 +332,15 @@ export_collision("{collision_path}", "{collision_strategy}", {collision_dec})
                          resolved=None) -> Path:
         """Create SDF file using glTF meshes.
 
-        CropCraft-inspired semantics (Apache-2.0, INRAE): the collision carries
-        a per-category ``laser_retro`` so simulated lidar intensity doubles as
-        a semantic class label, and passable categories (grass/bush by default)
-        get ``collide_without_contact`` + a zero ``collide_bitmask`` so robots
+        CropCraft-inspired semantics (Apache-2.0, INRAE): a per-category
+        ``laser_retro`` makes simulated lidar intensity double as a semantic
+        class label, and passable categories (grass/bush by default) get
+        ``collide_without_contact`` + a zero ``collide_bitmask`` so robots
         drive through them while lidar still returns hits.
+
+        ``laser_retro`` goes on BOTH elements: gz Harmonic's gpu_lidar is
+        rendering-based and reads it from the visual only (measured in the
+        sensor-rig Phase-0 spike); CPU ray sensors read the collision.
         """
         retro = getattr(resolved, "laser_retro", 0.0) or 0.0
         passable = bool(getattr(resolved, "passable", False))
@@ -361,6 +365,7 @@ export_collision("{collision_path}", "{collision_strategy}", {collision_dec})
                 </geometry>{surface}
             </collision>
             <visual name="visual">
+                <laser_retro>{retro:g}</laser_retro>
                 <geometry>
                     <mesh><uri>mesh/{model_name}.glb</uri></mesh>
                 </geometry>

@@ -42,11 +42,27 @@ from wildseed.core.forest import WorldPopulator
          "'{\"tree\": \"canopy.png\", \"*\": \"veg.png\"}' ('*' = fallback).",
 )
 @click.option(
+    "--rig", "rig_flag", is_flag=True,
+    help="Include the flying sensor rig (regenerates models/sensor_rig, adds "
+         "the sensor system plugins + spherical coordinates to the world). "
+         "See `wildseed rig` and docs/SENSOR_RIG_PLAN.md."
+)
+@click.option(
+    "--rig-config", "rig_config_path", type=click.Path(exists=True), default=None,
+    help="Rig YAML config (implies --rig). Default: spike-verified full suite."
+)
+@click.option(
+    "--rig-pose", "rig_pose", type=str, default=None,
+    help="Rig pose 'x,y,z[,roll,pitch,yaw]' (implies --rig). "
+         "Default: terrain centre, 25 m AGL."
+)
+@click.option(
     "--verbose", "-v", is_flag=True,
     help="Show detailed statistics including scale info"
 )
 @click.pass_context
-def generate(ctx, base_path, density, output, seed, rows, density_maps, verbose):
+def generate(ctx, base_path, density, output, seed, rows, density_maps,
+             rig_flag, rig_config_path, rig_pose, verbose):
     """Generate a forest world from existing models.
 
     Procedurally places models on terrain using intelligent positioning
@@ -118,6 +134,29 @@ def generate(ctx, base_path, density, output, seed, rows, density_maps, verbose)
         except json.JSONDecodeError as e:
             raise click.ClickException(f"Invalid JSON for rows: {e}")
 
+    rig_config = None
+    rig_pose_tuple = None
+    if rig_flag or rig_config_path or rig_pose:
+        from wildseed.core.rig import RigConfig
+        if rig_config_path:
+            import yaml
+            raw = yaml.safe_load(Path(rig_config_path).read_text()) or {}
+            rig_config = RigConfig(**raw)
+        else:
+            rig_config = RigConfig()
+        if rig_pose:
+            try:
+                parts = [float(v) for v in rig_pose.split(",")]
+            except ValueError:
+                raise click.ClickException(
+                    "--rig-pose must be numbers 'x,y,z[,roll,pitch,yaw]'")
+            if len(parts) == 3:
+                parts += [0.0, 0.0, 0.0]
+            if len(parts) != 6:
+                raise click.ClickException(
+                    "--rig-pose needs 3 or 6 comma-separated numbers")
+            rig_pose_tuple = tuple(parts)
+
     # Determine base path
     project_base = Path(base_path) if base_path else Path.cwd()
     if not (project_base / "models").exists():
@@ -172,7 +211,9 @@ def generate(ctx, base_path, density, output, seed, rows, density_maps, verbose)
             )
 
             world_path = populator.create_forest_world(density_config,
-                                                       rows_config=rows_config)
+                                                       rows_config=rows_config,
+                                                       rig_config=rig_config,
+                                                       rig_pose=rig_pose_tuple)
 
             # Get statistics
             stats = populator.get_model_statistics()

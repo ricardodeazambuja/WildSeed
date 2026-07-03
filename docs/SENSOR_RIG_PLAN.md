@@ -285,3 +285,33 @@ magnetometer, GT odometry (`OdometryPublisher`) — all publishing plausible dat
    gravity subtracted) with a valid quaternion — usable as a static sanity check.
 5. navsat/baro behave: lat offset matches the rig's -120 m Y, alt = elevation+z,
    pressure ~100.4 kPa at 675 m AMSL.
+
+### Phase 1 — GATE MET: generated rig world verdicts 13/13; 96/96 unit tests
+
+`wildseed rig` writes `models/sensor_rig/` from a YAML-able `RigConfig`
+(`src/wildseed/core/rig.py`); `wildseed generate --rig [--rig-config Y]
+[--rig-pose x,y,z[,r,p,y]]` includes it (default pose: terrain centre, 25 m AGL),
+injects the sensor system plugins + `<spherical_coordinates>` idempotently, and
+labels every placed instance + terrain via the `Label` system. `gz sdf -p`
+validates the model; the Phase-0 harness (now env-parameterizable:
+`RIG_EXPECT_POSE`, `SPIKE_OUTDIR`) passes 13/13 against a seeded generated world.
+
+- **One id space for semantic GT:** segmentation class labels == laser_retro
+  intensities (tree=1 bush=2 rock=3 grass=4 sand=5) + ground=6, water=7
+  (`CLASS_LABELS` in core/rig.py; enforced by a unit test against
+  `LASER_RETRO_DEFAULTS`). Verified live: lidar intensities {0,1,3} and
+  segmentation labels {1,3,6} in the same world.
+- **Converter fixed** to write `laser_retro` on visual AND collision; all 52
+  on-disk model.sdf regenerated (models/ stays gitignored — rebuilt worlds pick
+  the fix up automatically).
+- **Body-occlusion gotcha (found by looking at the frames, not the verdicts):**
+  a body-center camera mount rendered a rotor disk filling the frame corner and
+  a 0.2 m depth min. Mounts are now computed against the body geometry: cameras
+  front-bottom (0.20, ±b/2, -0.08) — rgbd + segcam exactly at cam_left's pose so
+  RGB/depth/labels are pixel-paired; lidar on a mast at z=0.45 where the
+  steepest default ray (0.7 rad) crosses the rotor plane at 0.45 m radial,
+  outside the disks (0.40 m). Depth min went 0.2 m -> 64 m in the same scene.
+  The wide-angle still sees rotors at the frame edge — deliberate (a real
+  drone's fisheye does too).
+- Deviation from plan: the rig body is SDF primitives (box + rotors + mast),
+  not an assetgen Blender mesh — `wildseed rig` needs no Blender this way.
