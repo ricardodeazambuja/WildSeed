@@ -250,4 +250,38 @@ proves too heavy, deliver the Dockerfile + doc marked EXPERIMENTAL/untested and 
 
 ## Findings (filled as phases complete)
 
-*(empty — Phase 0 starts here)*
+### Phase 0 — GATE MET: 13/13 sensor streams PASS (headless, wildseed:egl, GPU)
+
+World: `worlds/sensor_spike.world` (superset of `forest_spike.world`, kept separate);
+harness: `tools/capture_sensors.py`. Debug frames in `frames/spike/`. Run:
+```bash
+docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -v "$PWD:/workspace" \
+  --entrypoint bash wildseed:egl -c 'cd /workspace && \
+  GZ_SIM_RESOURCE_PATH=/workspace/models gz sim -s -r worlds/sensor_spike.world \
+  > /tmp/gz.log 2>&1 & sleep 10; python3 tools/capture_sensors.py'
+```
+
+Stream verdicts: stereo cams, wide-angle (`wideanglecamera` works on ogre2/EGL),
+rgbd (rgb + float32 depth), instance segmentation (labels + colored), 3D gpu_lidar
+(PointCloudPacked, fields x/y/z/intensity/ring), imu, navsat, air_pressure,
+magnetometer, GT odometry (`OdometryPublisher`) — all publishing plausible data.
+
+**Hard-won findings (do not rediscover):**
+1. **`laser_retro` is read from the VISUAL, not the collision.** gpu_lidar is
+   rendering-based: the retro-box control (retro=500 on visual) shows intensity 500;
+   our converted tree/rock (retro on collision, values 1/3) return intensity 0. The
+   converter's collision-side `laser_retro` (cropcraft feature) is **invisible to
+   gpu_lidar** → Phase 1 must move/duplicate it onto visuals.
+2. **Segmentation labels_map channel layout** (instance mode, gz-sim8/ogre2):
+   ch2 = class label, ch0 (+ch1 high byte) = per-class instance id, background 0.
+   NOT the R channel the docs imply. `Label` plugin inside `<include>` works, incl.
+   on our MASK-foliage models — leaves label per-pixel, not as quads. Terrain has no
+   label → renders 0/background; give ground a label in Phase 1 if wanted.
+3. **Magnetometer publishes WMM in Gauss.** With `<spherical_coordinates>` present,
+   gz Harmonic computes the World Magnetic Model at the world origin and writes it
+   into `field_tesla` in **Gauss** (0.574 @ 57.03N,-115.43E); the world
+   `<magnetic_field>` element is ignored.
+4. IMU on a gravity-off link still reads |acc| = 9.80 (specific force w/ world
+   gravity subtracted) with a valid quaternion — usable as a static sanity check.
+5. navsat/baro behave: lat offset matches the rig's -120 m Y, alt = elevation+z,
+   pressure ~100.4 kPa at 675 m AMSL.

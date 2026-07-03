@@ -1,0 +1,215 @@
+<?xml version='1.0' encoding='ASCII'?>
+<!-- SENSOR RIG SPIKE (docs/SENSOR_RIG_PLAN.md Phase 0).
+     Superset of forest_spike.world: full sensor suite on one floating rig, labeled
+     includes for the segmentation camera, and a laser_retro positive-control box
+     (retro on the VISUAL, per gz-sim8 gpu_lidar_retro_values_sensor.sdf) next to our
+     converted models (retro on the COLLISION) to settle where gpu_lidar reads it.
+     Objects float at rig altitude on purpose: guarantees visibility without knowing
+     the terrain height (this is a spike, not a demo). Run headless:
+       gz sim -s -r worlds/sensor_spike.world   (GZ_SIM_RESOURCE_PATH=/workspace/models)
+     then tools/capture_sensors.py verdicts every stream. -->
+<sdf version='1.8'>
+  <world name='sensor_spike'>
+    <physics name='1ms' type='ode'>
+      <max_step_size>0.003</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+    <plugin name='gz::sim::systems::Physics'          filename='gz-sim-physics-system'/>
+    <plugin name='gz::sim::systems::UserCommands'     filename='gz-sim-user-commands-system'/>
+    <plugin name='gz::sim::systems::SceneBroadcaster' filename='gz-sim-scene-broadcaster-system'/>
+    <plugin name='gz::sim::systems::Sensors'          filename='gz-sim-sensors-system'>
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin name='gz::sim::systems::Imu'             filename='gz-sim-imu-system'/>
+    <plugin name='gz::sim::systems::NavSat'          filename='gz-sim-navsat-system'/>
+    <plugin name='gz::sim::systems::AirPressure'     filename='gz-sim-air-pressure-system'/>
+    <plugin name='gz::sim::systems::Magnetometer'    filename='gz-sim-magnetometer-system'/>
+    <plugin name='gz::sim::systems::ApplyLinkWrench' filename='gz-sim-apply-link-wrench-system'/>
+
+    <scene>
+      <ambient>1 1 1 1</ambient>
+      <background>0.3 0.7 0.9 1</background>
+      <grid>false</grid>
+      <shadows>0</shadows>
+    </scene>
+    <light name='sun' type='directional'>
+      <cast_shadows>0</cast_shadows>
+      <pose>0 0 10 0 -0 0</pose>
+      <diffuse>1.0 1.0 1.0 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.5 -1.0</direction>
+    </light>
+
+    <!-- REQUIRED for GPS/NavSat -->
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>57.0271155</latitude_deg>
+      <longitude_deg>-115.426770</longitude_deg>
+      <elevation>600</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+    <!-- explicit so the magnetometer verdict has a known target (Tesla, ENU) -->
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+
+    <include>
+      <uri>model://ground</uri>
+      <name>terrain</name>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+
+    <!-- Labeled targets for the segmentation camera, floating in the rig's view.
+         tree/rock are OUR converted models: laser_retro lives on their collisions. -->
+    <include>
+      <uri>model://tree/fir_sapling</uri>
+      <name>seg_tree</name>
+      <pose>-8 -95 73 0 0 0</pose>
+      <static>true</static>
+      <plugin filename='gz-sim-label-system' name='gz::sim::systems::Label'>
+        <label>10</label>
+      </plugin>
+    </include>
+    <include>
+      <uri>model://rock/boulder_01</uri>
+      <name>seg_rock</name>
+      <pose>8 -95 74 0 0 0</pose>
+      <static>true</static>
+      <plugin filename='gz-sim-label-system' name='gz::sim::systems::Label'>
+        <label>20</label>
+      </plugin>
+    </include>
+
+    <!-- laser_retro positive control: retro on the VISUAL (gz example style) -->
+    <model name='retro_box'>
+      <static>true</static>
+      <pose>0 -100 75 0 0 0</pose>
+      <plugin filename='gz-sim-label-system' name='gz::sim::systems::Label'>
+        <label>30</label>
+      </plugin>
+      <link name='link'>
+        <collision name='c'>
+          <geometry><box><size>4 4 4</size></box></geometry>
+        </collision>
+        <visual name='v'>
+          <laser_retro>500</laser_retro>
+          <geometry><box><size>4 4 4</size></box></geometry>
+          <material><ambient>0.8 0.2 0.2 1</ambient><diffuse>0.8 0.2 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- The rig: floating (gravity off) so the same body works kinematically
+         (Phase 2, set_pose) and dynamically (Phase 4, ApplyLinkWrench). -->
+    <model name='sensor_rig'>
+      <pose>0 -120 75 0 0 1.5708</pose>
+      <plugin filename='gz-sim-odometry-publisher-system'
+              name='gz::sim::systems::OdometryPublisher'>
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>sensor_rig</robot_base_frame>
+        <dimensions>3</dimensions>
+        <odom_publish_frequency>50</odom_publish_frequency>
+      </plugin>
+      <link name='base'>
+        <gravity>false</gravity>
+        <inertial>
+          <mass>2.0</mass>
+          <inertia><ixx>0.02</ixx><iyy>0.02</iyy><izz>0.02</izz>
+                   <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+
+        <!-- stereo pair: 12 cm baseline along body -Y/+Y (body +X looks at scene) -->
+        <sensor name='cam_left' type='camera'>
+          <pose>0 0.06 0 0 0 0</pose>
+          <topic>rig/cam_left</topic>
+          <always_on>1</always_on><update_rate>10</update_rate>
+          <camera>
+            <horizontal_fov>1.0</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
+            <clip><near>0.1</near><far>2000</far></clip>
+          </camera>
+        </sensor>
+        <sensor name='cam_right' type='camera'>
+          <pose>0 -0.06 0 0 0 0</pose>
+          <topic>rig/cam_right</topic>
+          <always_on>1</always_on><update_rate>10</update_rate>
+          <camera>
+            <horizontal_fov>1.0</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
+            <clip><near>0.1</near><far>2000</far></clip>
+          </camera>
+        </sensor>
+
+        <sensor name='rgbd' type='rgbd_camera'>
+          <pose>0 0 -0.05 0 0 0</pose>
+          <topic>rig/rgbd</topic>
+          <always_on>1</always_on><update_rate>10</update_rate>
+          <camera>
+            <horizontal_fov>1.0</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
+            <clip><near>0.1</near><far>500</far></clip>
+          </camera>
+        </sensor>
+
+        <sensor name='wideangle' type='wideanglecamera'>
+          <pose>0 0 0.05 0 0 0</pose>
+          <topic>rig/wideangle</topic>
+          <always_on>1</always_on><update_rate>10</update_rate>
+          <camera>
+            <horizontal_fov>3.0</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
+            <clip><near>0.1</near><far>2000</far></clip>
+            <lens><type>equidistant</type><scale_to_hfov>true</scale_to_hfov>
+                  <cutoff_angle>1.5</cutoff_angle></lens>
+          </camera>
+        </sensor>
+
+        <sensor name='segcam' type='segmentation'>
+          <pose>0 0 0 0 0 0</pose>
+          <topic>rig/segmentation</topic>
+          <always_on>1</always_on><update_rate>5</update_rate>
+          <camera>
+            <segmentation_type>instance</segmentation_type>
+            <horizontal_fov>1.0</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
+            <clip><near>0.1</near><far>500</far></clip>
+          </camera>
+        </sensor>
+
+        <sensor name='lidar' type='gpu_lidar'>
+          <pose>0 0 0.1 0 0 0</pose>
+          <topic>rig/lidar</topic>
+          <always_on>1</always_on><update_rate>10</update_rate>
+          <lidar>
+            <scan>
+              <horizontal><samples>360</samples><resolution>1</resolution>
+                <min_angle>-3.14159</min_angle><max_angle>3.14159</max_angle></horizontal>
+              <vertical><samples>16</samples><resolution>1</resolution>
+                <min_angle>-0.7</min_angle><max_angle>0.26</max_angle></vertical>
+            </scan>
+            <range><min>0.1</min><max>150</max><resolution>0.01</resolution></range>
+          </lidar>
+        </sensor>
+
+        <sensor name='imu' type='imu'>
+          <topic>rig/imu</topic>
+          <always_on>1</always_on><update_rate>100</update_rate>
+        </sensor>
+        <sensor name='navsat' type='navsat'>
+          <topic>rig/navsat</topic>
+          <always_on>1</always_on><update_rate>5</update_rate>
+        </sensor>
+        <sensor name='air_pressure' type='air_pressure'>
+          <topic>rig/air_pressure</topic>
+          <always_on>1</always_on><update_rate>10</update_rate>
+          <air_pressure><reference_altitude>600</reference_altitude></air_pressure>
+        </sensor>
+        <sensor name='magnetometer' type='magnetometer'>
+          <topic>rig/magnetometer</topic>
+          <always_on>1</always_on><update_rate>10</update_rate>
+        </sensor>
+      </link>
+    </model>
+
+  </world>
+</sdf>

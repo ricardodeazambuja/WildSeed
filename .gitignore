@@ -39,7 +39,11 @@ forest3d.yaml
 
 # Generated outputs
 models/
-worlds/
+worlds/*
+# ...except hand-authored spike/test worlds (source, not generated).
+# NOTE: the pattern above must stay `worlds/*` (not `worlds/`) or git will not
+# descend into the dir and the negation below can never match.
+!worlds/sensor_spike.world
 Blender-Assets/*.blend
 Blender-Assets/**/*.blend
 
