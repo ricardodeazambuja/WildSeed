@@ -478,8 +478,9 @@ procedural-placement pipeline for Gazebo is his work, and that project's commit
 history (authors, dates, messages) is preserved in this repository (asset binaries
 under the gitignored `models/` and `Blender-Assets/` paths were scrubbed from history
 because some were commercial and not redistributable). The three reference
-screenshots bundled for the metric harness (`Screenshot from 2026-01-*.png`) are
-renders from that project. Thank you, Khalid.
+screenshots the metric harness compares against (`Screenshot from 2026-01-*.png`)
+are renders from that project and are **not** distributed here (gitignored) —
+drop your own copies in the repo root to run `tools/compare.py`. Thank you, Khalid.
 
 On top of that foundation, WildSeed added the seeded procedural terrain synthesizer,
 the seeded patchy-ground compositor with per-basin water, the master-seed `scenario`

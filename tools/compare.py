@@ -285,7 +285,10 @@ def main():
     args = ap.parse_args()
 
     if not ORIGINALS:
-        raise SystemExit("no originals found (Screenshot from 2026-*.png)")
+        raise SystemExit(
+            "no originals found (Screenshot from 2026-*.png): the upstream "
+            "Forest3D reference screenshots are not distributed with WildSeed "
+            "(gitignored); drop them in the repo root (or set WS) to compare")
 
     # originals: crop GUI -> common height -> metrics
     orig_imgs, orig_metrics = [], []
