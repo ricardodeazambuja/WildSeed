@@ -135,6 +135,7 @@ class RunRecorder:
             self.dataset_dir.mkdir(parents=True, exist_ok=True)
         self._node = Node()   # keep a ref: GC'd node drops subscriptions
         p = self.topic_prefix
+        self._topics = [f"{p}/cam_left"]
         self._node.subscribe(Image, f"{p}/cam_left", self._cam_cb)
         if self.dataset:
             self._node.subscribe(PointCloudPacked, f"{p}/lidar/points",
@@ -143,6 +144,8 @@ class RunRecorder:
             self._node.subscribe(NavSat, f"{p}/navsat", self._navsat_cb)
             self._node.subscribe(Odometry, f"/model/{self.model}/odometry",
                                  self._odom_cb)
+            self._topics += [f"{p}/lidar/points", f"{p}/imu", f"{p}/navsat",
+                             f"/model/{self.model}/odometry"]
         self.active = True
         import threading
         self._writer = threading.Thread(target=self._writer_loop, daemon=True)
@@ -150,6 +153,15 @@ class RunRecorder:
 
     def stop(self):
         self.active = False
+        # Teardown must be ORDERLY: a subscription left alive at interpreter
+        # exit lets gz-transport call back into a dying Python — a flaky,
+        # load-dependent segfault (observed after `run complete` under heavy
+        # server load). Unsubscribe everything, then drain.
+        for topic in getattr(self, "_topics", []):
+            try:
+                self._node.unsubscribe(topic)
+            except Exception as e:
+                logger.debug(f"unsubscribe({topic}): {e}")
         time.sleep(0.3)   # let in-flight callbacks drain
         if self._writer is not None:
             self._writer.join(timeout=60)

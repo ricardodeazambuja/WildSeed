@@ -188,6 +188,20 @@ t0 = time.time()
 while time.time() - t0 < TIMEOUT_S and len(got) < len(EXPECTED):
     time.sleep(0.2)
 
+# orderly teardown: live subscriptions at interpreter exit are a flaky
+# segfault (gz-transport calls back into a dying Python)
+for _topic in ["rig/cam_left", "rig/cam_right", "rig/wideangle",
+               "rig/rgbd/image", "rig/rgbd/depth_image",
+               "rig/segmentation/labels_map", "rig/segmentation/colored_map",
+               "rig/lidar/points", "rig/imu", "rig/navsat",
+               "rig/air_pressure", "rig/magnetometer",
+               "/model/sensor_rig/odometry"]:
+    try:
+        node.unsubscribe(_topic)
+    except Exception:
+        pass
+time.sleep(0.2)
+
 print("=== SENSOR SPIKE RESULTS ===", flush=True)
 n_pass = 0
 for k in EXPECTED:

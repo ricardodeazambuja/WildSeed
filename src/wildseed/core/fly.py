@@ -297,33 +297,55 @@ def play_trajectory(traj: Dict, world: str = "forest_world",
     t_prev = 0.0
     sim_prev = sim_now()
     rejects = 0
-    while True:
-        s = sim_now()
-        max_advance = max(2.0 * (s - sim_prev), 0.5 / update_hz)
-        sim_prev = s
-        t = min(max(s - t0, t_prev), t_prev + max_advance)
-        t_prev = t
-        p = interpolate_pose(traj, t)
-        req = Pose()
-        req.name = model
-        req.position.x, req.position.y, req.position.z = p["x"], p["y"], p["z"]
-        req.orientation.w = p["qw"]
-        req.orientation.x = p["qx"]
-        req.orientation.y = p["qy"]
-        req.orientation.z = p["qz"]
-        # short timeout: a busy server must skip an update, not serialize the
-        # loop into second-long waits
-        ok, rep = node.request(service, req, Pose, Boolean, 200)
-        if not (ok and rep.data):
-            rejects += 1
-        calls += 1
-        if t >= end_t:
-            break
-        time.sleep(1.0 / update_hz)
+    try:
+        while True:
+            s = sim_now()
+            max_advance = max(2.0 * (s - sim_prev), 0.5 / update_hz)
+            sim_prev = s
+            t = min(max(s - t0, t_prev), t_prev + max_advance)
+            t_prev = t
+            p = interpolate_pose(traj, t)
+            req = Pose()
+            req.name = model
+            req.position.x, req.position.y, req.position.z = (p["x"], p["y"],
+                                                              p["z"])
+            req.orientation.w = p["qw"]
+            req.orientation.x = p["qx"]
+            req.orientation.y = p["qy"]
+            req.orientation.z = p["qz"]
+            # short timeout: a busy server must skip an update, not serialize
+            # the loop into second-long waits
+            ok, rep = node.request(service, req, Pose, Boolean, 200)
+            if not (ok and rep.data):
+                rejects += 1
+            calls += 1
+            if t >= end_t:
+                break
+            time.sleep(1.0 / update_hz)
+    finally:
+        _quiet_unsubscribe(node, [f"/world/{world}/stats"])
     if rejects:
         logger.warning(f"{rejects}/{calls} set_pose updates were "
                        "rejected/timed out (server under load)")
     return calls
+
+
+def _quiet_unsubscribe(node, topics) -> None:
+    """Drop subscriptions before teardown and let in-flight callbacks drain.
+
+    A subscription left alive at interpreter exit lets gz-transport call back
+    into a dying Python — a flaky, load-dependent segfault (observed after a
+    run had fully completed). Every subscriber in this module must go through
+    here on its way out.
+    """
+    import time as _time
+
+    for topic in topics:
+        try:
+            node.unsubscribe(topic)
+        except Exception as e:
+            logger.debug(f"unsubscribe({topic}): {e}")
+    _time.sleep(0.2)
 
 
 def _quat_mul(a, b):
@@ -521,6 +543,8 @@ def fly_dynamic(traj: Dict, world: str = "forest_world",
         clear.name = model
         clear.type = Entity.MODEL
         pub_clear.publish(clear)
+        _quiet_unsubscribe(node, [f"/world/{world}/stats",
+                                  f"/model/{model}/odometry"])
 
     err = np.array(err_log)
     settled = err[len(err) // 10:]   # after initial convergence

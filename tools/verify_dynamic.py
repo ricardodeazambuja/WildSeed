@@ -39,6 +39,14 @@ def odom_cb(m):
 node.subscribe(IMU, "rig/imu", imu_cb)
 node.subscribe(Odometry, f"/model/{MODEL}/odometry", odom_cb)
 time.sleep(DUR)
+# orderly teardown: live subscriptions at interpreter exit are a flaky
+# segfault (gz-transport calls back into a dying Python)
+for _topic in ("rig/imu", f"/model/{MODEL}/odometry"):
+    try:
+        node.unsubscribe(_topic)
+    except Exception:
+        pass
+time.sleep(0.2)
 
 imu = np.array(imu_rows)
 odom = np.array(odom_rows)

@@ -436,5 +436,14 @@ gitignored — regenerate with the commands below):
 Note for future demo recordings: pick the biome deliberately
 (`--biome temperate` + `--density-scale ≥1.5`); a random sparse biome
 (e.g. bush-heavy wetland seed 204) reads as empty terrain from altitude.
-Cosmetic: the record process can segfault at interpreter exit (gz/cv2
-destructor clash) — after `run complete` is printed; artifacts unaffected.
+
+**Exit-segfault, root-caused and fixed** (was initially misfiled as
+"cosmetic"): a gz-transport subscription left alive at interpreter exit lets
+the C++ layer call back into a dying Python — a flaky, load-dependent SIGSEGV
+after `run complete` (observed exactly on the run with heavy set_pose
+rejections; 3 light-load repro attempts stayed clean, minimal-case probes all
+exited 0 — the race needs load). Fix: every subscriber (`RunRecorder.stop`,
+both fly loops via `_quiet_unsubscribe`, the gate tools) unsubscribes all
+topics and drains before returning — the mechanism is removed rather than
+made rarer. Verified: 2× heavy 20 fps 720p flythroughs under load, exit 0
+with faulthandler armed; 120/120 tests.
