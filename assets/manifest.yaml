@@ -65,17 +65,36 @@ assets:
   - {id: flower_ursinia,  category: grass, res: 1k, lod: 0, scale: 1.0, variant: a, biomes: [savanna]}
   - {id: dry_branches_medium_01, category: grass, res: 1k, lod: 0, scale: 1.0, variant: a, biomes: [winter, alpine]}
 
+  # ---- diversity harvest (2026-07-03, Poly Haven catalogue review): forest-floor
+  # deadwood, mossy/barren rock variety, and species for the thin biomes. All
+  # Poly Haven, CC0, credential-free.
+  - {id: searsia_lucida,     category: tree, res: 1k, lod: 1, scale: 1.0, biomes: [savanna]}
+  - {id: pine_sapling_small, category: tree, res: 1k, lod: 1, scale: 1.0, biomes: [alpine, winter]}
+  - {id: tree_stump_01,      category: tree, res: 1k, lod: 0, scale: 1.0, biomes: [temperate, wetland]}
+  - {id: tree_stump_02,      category: tree, res: 1k, lod: 0, scale: 1.0, biomes: [alpine, winter]}
+  - {id: dead_tree_trunk,    category: tree, res: 1k, lod: 0, scale: 1.0, biomes: [temperate, wetland]}
+  - {id: rock_09,                category: rock, res: 2k, lod: 0, scale: 1.0, biomes: [temperate, wetland]}
+  - {id: rock_face_01,           category: rock, res: 2k, lod: 0, scale: 1.0, biomes: [alpine]}
+  - {id: rock_moss_set_01,       category: rock, res: 1k, lod: 0, scale: 1.0, biomes: [temperate, wetland]}
+  - {id: coast_rocks_02,         category: rock, res: 2k, lod: 0, scale: 1.0, biomes: [coastal]}
+  - {id: namaqualand_boulder_02, category: rock, res: 2k, lod: 0, scale: 1.0, biomes: [savanna]}
+  - {id: moon_rock_01,           category: rock, res: 1k, lod: 0, scale: 1.0, biomes: [alpine, winter]}
+  - {id: cheiridopsis_succulent, category: bush, res: 1k, lod: 0, scale: 1.0, biomes: [savanna, coastal]}
+  - {id: shrub_sorrel_01,        category: bush, res: 1k, lod: 0, scale: 1.0, biomes: [temperate, wetland]}
+  - {id: celandine_01,      category: grass, res: 1k, lod: 0, scale: 1.0, biomes: [temperate, wetland]}
+  - {id: periwinkle_plant,  category: grass, res: 1k, lod: 0, scale: 1.0, biomes: [temperate]}
+
 # Per-demo palettes — which converted models each scenario is allowed to scatter.
 # The demo builder (tools/build_scenarios.py) stashes everything NOT listed for a biome
 # so `generate` only picks from these. Density (tree/rock/bush/grass counts) is the
 # user-tunable knob, set per demo in the builder and overridable via `generate --density`.
 biomes:
-  temperate: {trees: [island_tree_01, island_tree_02, island_tree_03, jacaranda_tree, tree_small_02], bushes: [shrub_01, shrub_02, shrub_03, shrub_04], grasses: [grass_medium_01, grass_medium_02, grass_bermuda_01, dandelion_01], rocks: [boulder_01, rock_07, namaqualand_rocks_01], ground: grassland}
-  savanna:   {trees: [quiver_tree_01, quiver_tree_02, searsia_burchellii, dead_quiver_trunk], bushes: [wild_rooibos_bush, crystalline_iceplant, othonna_cerarioides], grasses: [flower_gazania, flower_ursinia], rocks: [namaqualand_boulder_04, namaqualand_rocks_01, sand_rocks_small_01], ground: desert}
-  wetland:   {trees: [island_tree_01, island_tree_03, jacaranda_tree], bushes: [fern_02, shrub_02, shrub_03, nettle_plant], grasses: [grass_medium_01, grass_medium_02, dandelion_01], rocks: [rock_07], ground: grassland}
-  alpine:    {trees: [fir_tree_01, pine_tree_01, fir_sapling, pine_sapling_medium, fir_sapling_medium, dead_tree_trunk_02], bushes: [fern_02, shrub_02], grasses: [grass_medium_01, dry_branches_medium_01], rocks: [boulder_01, namaqualand_boulder_04, namaqualand_rocks_01], ground: snow}
-  winter:    {trees: [fir_tree_01, pine_tree_01, fir_sapling, pine_sapling_medium, fir_sapling_medium, dead_tree_trunk_02], bushes: [], grasses: [grass_medium_01, dry_branches_medium_01], rocks: [boulder_01, namaqualand_rocks_01], ground: snow}
-  coastal:   {trees: [island_tree_01, island_tree_03, tree_small_02], bushes: [shrub_01, shrub_04, fern_02, crystalline_iceplant], grasses: [grass_bermuda_01, grass_medium_02], rocks: [coast_rocks_01, sand_rocks_small_01], ground: desert}
+  temperate: {trees: [island_tree_01, island_tree_02, island_tree_03, jacaranda_tree, tree_small_02, tree_stump_01, dead_tree_trunk], bushes: [shrub_01, shrub_02, shrub_03, shrub_04, shrub_sorrel_01], grasses: [grass_medium_01, grass_medium_02, grass_bermuda_01, dandelion_01, celandine_01, periwinkle_plant], rocks: [boulder_01, rock_07, namaqualand_rocks_01, rock_09, rock_moss_set_01], ground: grassland}
+  savanna:   {trees: [quiver_tree_01, quiver_tree_02, searsia_burchellii, dead_quiver_trunk, searsia_lucida], bushes: [wild_rooibos_bush, crystalline_iceplant, othonna_cerarioides, cheiridopsis_succulent], grasses: [flower_gazania, flower_ursinia], rocks: [namaqualand_boulder_04, namaqualand_rocks_01, sand_rocks_small_01, namaqualand_boulder_02], ground: desert}
+  wetland:   {trees: [island_tree_01, island_tree_03, jacaranda_tree, dead_tree_trunk], bushes: [fern_02, shrub_02, shrub_03, nettle_plant, shrub_sorrel_01], grasses: [grass_medium_01, grass_medium_02, dandelion_01, celandine_01], rocks: [rock_07, rock_09, rock_moss_set_01], ground: grassland}
+  alpine:    {trees: [fir_tree_01, pine_tree_01, fir_sapling, pine_sapling_medium, fir_sapling_medium, dead_tree_trunk_02, pine_sapling_small, tree_stump_02], bushes: [fern_02, shrub_02], grasses: [grass_medium_01, dry_branches_medium_01], rocks: [boulder_01, namaqualand_boulder_04, namaqualand_rocks_01, rock_face_01, moon_rock_01], ground: snow}
+  winter:    {trees: [fir_tree_01, pine_tree_01, fir_sapling, pine_sapling_medium, fir_sapling_medium, dead_tree_trunk_02, pine_sapling_small, tree_stump_02], bushes: [], grasses: [grass_medium_01, dry_branches_medium_01], rocks: [boulder_01, namaqualand_rocks_01, moon_rock_01], ground: snow}
+  coastal:   {trees: [island_tree_01, island_tree_03, tree_small_02], bushes: [shrub_01, shrub_04, fern_02, crystalline_iceplant, cheiridopsis_succulent], grasses: [grass_bermuda_01, grass_medium_02], rocks: [coast_rocks_01, sand_rocks_small_01, coast_rocks_02], ground: desert}
   # Structured plantations (CropCraft-inspired): deliberately monoculture —
   # repeated identical rows are the hardest loop-closure/place-recognition case.
   orchard:   {trees: [island_tree_02], bushes: [shrub_03], grasses: [grass_medium_01, dandelion_01], rocks: [rock_07], ground: grassland}

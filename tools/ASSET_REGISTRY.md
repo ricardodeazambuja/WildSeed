@@ -51,22 +51,33 @@ regenerable from these ids + scripts).
 
 | date | category | name | source | reason rejected |
 |------|----------|------|--------|-----------------|
+| 2026-07-03 | grass | moss_01 | Poly Haven (CC0) | photoscan sprig is 15 cm long; at grass placement scales (0.25-0.7x) it's invisible ground clutter — useless as scatter. Converted fine (3.2 MB); dropped from manifest+palettes. |
 | 2026-06-27 | tree/rock/bush | `make_assets.py` procedural primitives (cones/cylinders/icospheres) | self-authored (`tools/make_assets.py`) | Proved the *pipeline* only. Too low-poly + flat-color to match the reference screenshots. Kept as a smoke-test asset set, NOT for realistic worlds. |
 
 ## Source shortlist (license posture — verify per-asset at adoption time)
 
+**Policy (2026-07-03):** assets do **not** have to be CC0 — any license that allows
+free redistribution is acceptable, attribution is easy and always given (this
+registry + README credits). That admits **CC-BY** (and CC-BY-SA for asset files,
+kept clearly separate from the AGPL code). Still excluded: **NC/ND** variants and
+any "royalty-free but no redistribution" terms (Fab, BlenderKit-RF, TurboSquid/
+CGTrader free) — the repo is public.
+
 | source | content | license posture | good for |
 |--------|---------|-----------------|----------|
-| [Poly Haven](https://polyhaven.com/models) | photo-scanned rocks, tree trunks, small veg; 8K PBR | **CC0** — no attribution, native `.blend` w/ packed textures | rocks/boulders (best), ground detail props |
+| [Poly Haven](https://polyhaven.com/models) | photo-scanned rocks, tree trunks, small veg; 8K PBR | **CC0** — no attribution, native `.blend` w/ packed textures, credential-free API | rocks/boulders (best), ground detail props |
 | [ambientCG](https://ambientcg.com) | CC0 PBR ground/material textures (forest floor, grass, dirt, moss, bark, pine needles) | **CC0** | terrain texturing + retexturing assets |
-| [Fab / Quixel Megascans](https://www.fab.com) | photoreal trees, boulders, 3D plants, scatter (the screenshot look) | **Fab Standard License** — engine-agnostic, internal sim use OK, **no redistribution of raw assets**; some free, most ~$0.99 since 2025 | hero trees, rocks, bushes |
-| [BlenderKit](https://www.blenderkit.com) | trees/shrubs/grass with **pre-wired alpha foliage**, one-click import | **CC0 or RF** (RF = use OK, no resale/redistribution) | fastest path to alpha-foliage trees |
-| [Sketchfab](https://sketchfab.com) | huge user library | filter **CC0 / CC-BY** (avoid CC-BY-NC); CC-BY needs credit in registry | variety / specific species |
+| [Sketchfab](https://sketchfab.com) | huge user library incl. photogrammetry trees/rocks | filter **CC0 / CC-BY** (avoid CC-BY-NC/ND); **OK under policy** with credit; download API needs a free account token (breaks the no-login rebuild guarantee → manual fetch + vendored source, or user-supplied token) | variety / specific species |
+| [Poly Pizza](https://poly.pizza) | aggregated low-poly CC0/CC-BY models (incl. Google Poly rescue) | **CC0 / CC-BY** per asset; free API key | stylized variety, quick props |
+| [OpenGameArt](https://opengameart.org) | community models/textures | per-asset **CC0 / CC-BY / CC-BY-SA / GPL** — check each | odd species, ground clutter |
+| [Quaternius](https://quaternius.com) | stylized low-poly nature packs, direct zip download | **CC0** | stylized/DR worlds, prototyping |
 | [Kenney Nature Kit](https://kenney.nl/assets/nature-kit) | game-ready, **stylized/low-poly** | **CC0** | prototyping only — not photoreal |
+| [Fab / Quixel Megascans](https://www.fab.com) | photoreal trees, boulders, 3D plants, scatter (the screenshot look) | **Fab Standard License** — internal sim use OK, **no redistribution** → excluded by policy | (reference only) |
+| [BlenderKit](https://www.blenderkit.com) | trees/shrubs/grass with pre-wired alpha foliage | **CC0 or RF** — RF forbids redistribution → CC0-filtered only | alpha-foliage trees (CC0 subset) |
 
-> Redistribution note: Fab + BlenderKit-RF forbid publishing the **raw** assets. Fine while we
-> don't publish; if this repo (or generated worlds bundling the `.glb`) is ever made public, those
-> assets must be swapped for CC0 or removed. Track which is which in the USED table's `license` col.
+> Redistribution note: anything adopted under CC-BY/CC-BY-SA gets its author + license
+> in the USED table AND the README credits section. NC/ND/RF assets are not adopted at
+> all — the repo and the generated worlds that embed `.glb` copies are public.
 
 ## Variety upgrade plan — closing the gap to the upstream screenshots (2026-06-28)
 
@@ -139,3 +150,29 @@ also triggers on the presence of an **alpha/opacity texture map**, not only on m
 keywords — species-named materials (`dandelion_01`, `jacaranda_tree`, ...) carry no keyword
 and would otherwise export OPAQUE (the black-blob bug pattern). Bark/rock/trunk materials
 never ship an alpha map, so the signal is safe.
+
+## Diversity harvest (2026-07-03, Poly Haven catalogue review) — 15 new assets, all **CC0**
+
+Found by browsing the Poly Haven nature catalogue (110 models; we used 37) after the
+user green-lit non-CC0 redistributable licenses (see policy above) — Poly Haven's
+credential-free CC0 API still had everything needed, so no Sketchfab token required.
+Focus: forest-floor deadwood, mossy/barren rock variety, and species for the thin
+biomes. Built by the standard manifest pipeline, sha256-locked.
+
+| id | category | biomes | visual glb |
+|----|----------|--------|------------|
+| searsia_lucida | tree | savanna | 10.6 MB |
+| pine_sapling_small | tree | alpine, winter | 34.1 MB |
+| tree_stump_01 | tree | temperate, wetland | 7.9 MB |
+| tree_stump_02 | tree | alpine, winter | 8.6 MB |
+| dead_tree_trunk | tree | temperate, wetland | 8.6 MB |
+| rock_09 | rock | temperate, wetland | 18.9 MB |
+| rock_face_01 | rock | alpine | 24.3 MB |
+| rock_moss_set_01 | rock | temperate, wetland | 6.2 MB |
+| coast_rocks_02 | rock | coastal | 44.3 MB |
+| namaqualand_boulder_02 | rock | savanna | 27.8 MB |
+| moon_rock_01 | rock | alpine, winter | 4.4 MB |
+| cheiridopsis_succulent | bush | savanna, coastal | 5.5 MB |
+| shrub_sorrel_01 | bush | temperate, wetland | 4.8 MB |
+| celandine_01 | grass | temperate, wetland | 5.0 MB |
+| periwinkle_plant | grass | temperate | 8.2 MB |
