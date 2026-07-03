@@ -239,10 +239,20 @@ def rebuild_foliage(m):
     return True
 
 
+def has_alpha_map(m):
+    """Species-named materials (e.g. `dandelion_01`, `jacaranda_tree`) carry no
+    FOLIAGE_KW keyword but DO ship an alpha/opacity map — that map only exists for
+    cutout foliage (bark/rock/trunk materials never have one), so its presence is a
+    reliable foliage signal."""
+    return any("alpha" in im.name.lower() or "opacity" in im.name.lower()
+               for im in collect_images(m.node_tree))
+
+
 for m in bpy.data.materials:
     if not m.use_nodes or not m.node_tree:
         continue
-    is_foliage = any(k in m.name.lower() for k in FOLIAGE_KW)
+    is_foliage = (any(k in m.name.lower() for k in FOLIAGE_KW)
+                  or has_alpha_map(m))
     if is_foliage and rebuild_foliage(m):
         print("ALPHA_MASK_WIRED:", m.name)
     else:

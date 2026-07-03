@@ -11,10 +11,25 @@ assets:
     category: bush
     sha256: e50aa9e52c65411255bb1f32157633725abf0bc40ec94cf253490fa595957501
     source: polyhaven:crystalline_iceplant
+  dandelion_01:
+    category: grass
+    sha256: 9751bb96fe8a10f19cd04c736e1417825f71aa7fbf1cb632e8c5ebc08f77a3d4
+    source: polyhaven:dandelion_01
+    visual_mb: 5.4
+  dead_quiver_trunk:
+    category: tree
+    sha256: b2dd6a76f43559524a45c81081fa3646b7efdd4bf6fcdcb141d381f105a5bbe0
+    source: polyhaven:dead_quiver_trunk
+    visual_mb: 5.6
   dead_tree_trunk_02:
     category: tree
     sha256: 03cbe553c78e14b8d4c4e50403ba13b9e95ee54d24806da136efa56a4779a2b5
     source: polyhaven:dead_tree_trunk_02
+  dry_branches_medium_01:
+    category: grass
+    sha256: cf59b495aa9d3a2f66915d5f8a5faa839154fb6ee1aed25a904168eb1ebd8ccd
+    source: polyhaven:dry_branches_medium_01
+    visual_mb: 7.2
   fern_02:
     category: bush
     sha256: 1bfb6e12d805cc97035c8cbd051187ca6db650e3157fd8884afcf66a6c4e78eb
@@ -23,6 +38,11 @@ assets:
     category: tree
     sha256: 2888cbb7d7d0accc5efdb68e940dffde1c26c40f88984138f3b89444e4ffca42
     source: polyhaven:fir_sapling
+  fir_sapling_medium:
+    category: tree
+    sha256: 478c8aae188fadcbc32db31fa3bd4ecc8ef9250754bf692af3bff4356eee1d3a
+    source: polyhaven:fir_sapling_medium
+    visual_mb: 15.9
   fir_tree_01:
     category: tree
     sha256: 153d20aae6d7c63a4c52689d91e8bead78f6d17a70e11ef4d03d19953383de00
@@ -31,6 +51,11 @@ assets:
     category: grass
     sha256: 6032e53b3defd50fb552c9b7c837fbb9ef0263bcc477cd0c0105cb73a36d1514
     source: polyhaven:flower_gazania
+  flower_ursinia:
+    category: grass
+    sha256: 03b550acdeb122d9bc746d6ae983be09ea365072b281ec49f1e11f670815d955
+    source: polyhaven:flower_ursinia
+    visual_mb: 5.3
   grass_bermuda_01:
     category: grass
     sha256: 6ff15e278219947ce8013663f918fc3ae074f19157ace2f2dcfb3484e2e4e654
@@ -53,6 +78,16 @@ assets:
     category: tree
     sha256: 424746755d270ad50c020c0fe08fe9f0927e655e1ae26d66964d3a3360dd0cd9
     source: polyhaven:island_tree_02
+  island_tree_03:
+    category: tree
+    sha256: ad11d4cd2fb571115234089aa87369a5e6c70a2c549aa4ef21c535decb60570d
+    source: polyhaven:island_tree_03
+    visual_mb: 50.5
+  jacaranda_tree:
+    category: tree
+    sha256: e28e9ea0deb782a830420126b3c5536bde44d1b532cbfb4dccbcc0e46119a0ce
+    source: polyhaven:jacaranda_tree
+    visual_mb: 149.4
   namaqualand_boulder_04:
     category: rock
     sha256: null
@@ -61,6 +96,21 @@ assets:
     category: rock
     sha256: e7675c0b118b4f9cd07f4cce6e6e09249277b57610b91c4fa7f766f3a3e487e9
     source: polyhaven:namaqualand_rocks_01
+  nettle_plant:
+    category: bush
+    sha256: e5278743dcb665f8d8e852b2a3742e67e2722501f9bdd8d31b761e08e91de7f5
+    source: polyhaven:nettle_plant
+    visual_mb: 6.0
+  othonna_cerarioides:
+    category: bush
+    sha256: c7363319ff7c30f2c1aab284b2524b7e38d34a871b09674b41b6ec3973df0efe
+    source: polyhaven:othonna_cerarioides
+    visual_mb: 13.7
+  pine_sapling_medium:
+    category: tree
+    sha256: 2878214412c985b91ff9cde7c6c3756cdb4bbc59864d39df33ac7f0bfffb4c96
+    source: polyhaven:pine_sapling_medium
+    visual_mb: 25.4
   pine_tree_01:
     category: tree
     sha256: db517cc486475860f308b8064673b841fee6f9ad2986446d8e02d1b81b22284d
@@ -69,6 +119,11 @@ assets:
     category: tree
     sha256: 2ddc2ceefd10d4699c66be5363375d7a632e736044234265757adb8de5a69655
     source: polyhaven:quiver_tree_01
+  quiver_tree_02:
+    category: tree
+    sha256: 08f558d2ae4f9ce0ead675c4e4a5c09fb36a00c08ddf0f7ba524723cd22b04d4
+    source: polyhaven:quiver_tree_02
+    visual_mb: 7.4
   rock_07:
     category: rock
     sha256: b17121c16365009033f69446faf9260ce4007179bfe4d2d878b7ec872e0dfd7b
@@ -77,14 +132,34 @@ assets:
     category: rock
     sha256: db2cb62c4ea513dde5830fcd7b0294e1fa9ae99aca875ec0d88c0b093e63368d
     source: polyhaven:sand_rocks_small_01
+  searsia_burchellii:
+    category: tree
+    sha256: 8ad18164794a5b0c37be0c6984894b9f7049a47141e1cd9619661dcaf27c2a32
+    source: polyhaven:searsia_burchellii
+    visual_mb: 27.6
   shrub_01:
     category: bush
     sha256: a6ba7e56937853891eae84dc875fcc653d1ac38d50364b32a250025d7d4a80b0
     source: polyhaven:shrub_01
+  shrub_02:
+    category: bush
+    sha256: 56d0a66207ade193224ec2f1ca1996d35b415ec0fc3ec8fdd17574629d0ace7b
+    source: polyhaven:shrub_02
+    visual_mb: 4.8
   shrub_03:
     category: bush
     sha256: f003d3839670ad028ce7077fcef978d83a2c736222abc34168f45a07edcef9a7
     source: polyhaven:shrub_03
+  shrub_04:
+    category: bush
+    sha256: ad93ddeadad90597b5a55997f6a4da1b6c4e6ba195f17895667d6acb73029038
+    source: polyhaven:shrub_04
+    visual_mb: 4.7
+  tree_small_02:
+    category: tree
+    sha256: af3fef6da3eb97057d9d4d3c4281c5944696b8d518715deddd8500482d30b1bd
+    source: polyhaven:tree_small_02
+    visual_mb: 53.2
   wild_rooibos_bush:
     category: bush
     sha256: 75d904e4dfb03d4aab445e91489db5070074796e7e7a08e3165a8e67aac109dd

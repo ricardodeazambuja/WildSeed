@@ -101,3 +101,41 @@ not the pipeline.
 mirror the Maxtree list), run each through the existing `import_gltf.py` (recenter/base-to-z0/foliage
 alpha→MASK) → `forest3d convert`, log each in the USED table with its Sketchfab URL + CC0. Augment
 sparse categories (windswept trees, dense marram grass) procedurally via Sapling/geometry-nodes.
+
+## Variety harvest (2026-07-03) — 15 new Poly Haven assets, all **CC0**
+
+**Source decision:** the ffish.asia/floraZia plan above needs a Sketchfab **account token**
+for its download API (none on this machine; blocked without user input) and would break the
+repo's "reproduce with NO account/login" guarantee. Poly Haven still had **88 unused CC0
+nature models** on its credential-free API — enough to clear the variety DoD (>=3 tree +
+>=2 understory species per biome) without Sketchfab. ffish.asia stays open as a documented
+follow-up if per-species photoscan realism is later needed (requires user-provided token).
+
+All fetched/normalized/converted by the standard manifest pipeline (`assets/manifest.yaml`
+→ `tools/build_assets.py`), sha256-locked in `assets/manifest.lock.yaml`, verified via the
+catalog render (`tools/asset_catalog.png`). Palettes: temperate 5 trees, savanna 4, wetland
+3, alpine 6, winter 6, coastal 3; every biome >=2 understory species.
+
+| id | category | biomes | notes |
+|----|----------|--------|-------|
+| island_tree_03 | tree | temperate, wetland, coastal | broadleaf, LOD1, 50.5 MB |
+| jacaranda_tree | tree | temperate, wetland | **149 MB (over budget):** leaves are real meshes (LOD1 = 1.5 M tri; LOD0/LOD1 only, no lighter LOD ships). Same slim-down TODO as island_tree_01. |
+| tree_small_02 | tree | coastal, temperate | small generic broadleaf, LOD1, 53 MB |
+| quiver_tree_02 | tree | savanna | second quiver species, 7.4 MB |
+| searsia_burchellii | tree | savanna | large karoo shrub-tree, 27.6 MB |
+| dead_quiver_trunk | tree | savanna | dead landmark trunk, no foliage, 5.6 MB |
+| pine_sapling_medium | tree | alpine, winter | conifer understory-canopy bridge, 25.4 MB |
+| fir_sapling_medium | tree | alpine, winter | conifer, 15.9 MB |
+| shrub_02 | bush | temperate, wetland, alpine | kit variant a, 4.8 MB |
+| shrub_04 | bush | temperate, coastal | kit variant a, 4.7 MB |
+| othonna_cerarioides | bush | savanna | succulent shrub, 13.7 MB |
+| nettle_plant | bush | wetland | 6.0 MB |
+| dandelion_01 | grass | temperate, wetland | kit variant a, 5.4 MB |
+| flower_ursinia | grass | savanna | karoo wildflower, 5.3 MB |
+| dry_branches_medium_01 | grass | winter, alpine | ground debris scatter, 7.2 MB |
+
+**Pipeline fix shipped with the harvest:** `tools/normalize_blend.py` foliage detection now
+also triggers on the presence of an **alpha/opacity texture map**, not only on material-name
+keywords — species-named materials (`dandelion_01`, `jacaranda_tree`, ...) carry no keyword
+and would otherwise export OPAQUE (the black-blob bug pattern). Bark/rock/trunk materials
+never ship an alpha map, so the signal is safe.
