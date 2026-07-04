@@ -27,7 +27,9 @@ import yaml
 
 logger = logging.getLogger("wildseed.scenario")
 
-SCENARIO_FORMAT = 2
+# 3: terrain_knobs gained max_mean_slope_deg (ground-robot slope cap, default
+#    20°) — same seed yields the same layout but capped relief vs format 2.
+SCENARIO_FORMAT = 3
 
 # Wilderness biomes: random scatter, subject to the >=3-tree/>=2-understory
 # species-variety floor (repeated-model aliasing is the enemy there).
@@ -122,6 +124,7 @@ def resolve_scenario(
         density_scale: float = 1.0,
         size: int = 192,
         pixel_m: float = 1.6,
+        max_slope_deg: float = 20.0,
 ) -> dict:
     """Deterministically resolve a master seed into a full scenario spec.
 
@@ -147,6 +150,11 @@ def resolve_scenario(
 
     knobs = {k: round(float(rng.uniform(lo, hi)), 3)
              for k, (lo, hi) in sorted(space["knobs"].items())}
+    # Ground-robot slope cap (terraingen rescales relief to meet it — see
+    # TerrainSynthesizer step 6b). Scenario worlds host robots, so it is ON by
+    # default; 0 disables (aerial/scenery). Applied AFTER the draws above so it
+    # consumes no RNG — same seed, same layout, gentler relief. format 3.
+    knobs["max_mean_slope_deg"] = float(max_slope_deg)
 
     density = {}
     for cat in ("tree", "rock", "bush", "grass"):

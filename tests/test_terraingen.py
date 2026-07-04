@@ -163,3 +163,30 @@ def test_geotiff_seed_reproducible(tmp_path):
 
     assert np.array_equal(write(7, "a.tif"), write(7, "b.tif"))
     assert not np.array_equal(write(7, "c.tif"), write(8, "d.tif"))
+
+
+def test_max_mean_slope_cap_rescales_exactly():
+    """The slope cap must bring the mean surface slope to the target exactly
+    (slope is linear in height scale), and leave gentler terrain untouched."""
+    steep = TerrainGenConfig(resolution=96, preset="mountainous", seed=42,
+                             amplitude_m=96.0, feature_m=82.0,
+                             max_mean_slope_deg=20.0)
+    H, _ = TerrainSynthesizer(steep).synthesize()
+    gy, gx = np.gradient(H.astype(np.float64), steep.pixel_m)
+    mean_slope = np.degrees(np.arctan(np.mean(np.hypot(gx, gy))))
+    assert mean_slope == pytest.approx(20.0, abs=0.2)
+
+    # same knobs uncapped: must be far steeper (proves the cap actually fired)
+    raw = TerrainGenConfig(resolution=96, preset="mountainous", seed=42,
+                           amplitude_m=96.0, feature_m=82.0)
+    H_raw, _ = TerrainSynthesizer(raw).synthesize()
+    gy, gx = np.gradient(H_raw.astype(np.float64), raw.pixel_m)
+    assert np.degrees(np.arctan(np.mean(np.hypot(gx, gy)))) > 35.0
+
+    # gentle terrain below the cap is NOT rescaled
+    gentle_capped = TerrainGenConfig(resolution=96, preset="flat", seed=7,
+                                     max_mean_slope_deg=20.0)
+    gentle_raw = TerrainGenConfig(resolution=96, preset="flat", seed=7)
+    Ha, _ = TerrainSynthesizer(gentle_capped).synthesize()
+    Hb, _ = TerrainSynthesizer(gentle_raw).synthesize()
+    assert np.allclose(Ha, Hb)

@@ -141,6 +141,14 @@ python3 tools/build_scenarios.py    # build all 6 + render tools/scenarios_galle
 Density is fully tunable per category — `wildseed generate --density
 '{"tree":80,"rock":6,"bush":40,"grass":120}' --seed 7` — same `--seed` → identical world.
 
+**Ground robots — terrain slope is capped by default.** `scenario` rescales the
+relief so the DEM's mean surface slope meets `--max-slope` (default **20°**,
+`0` = off): presets can otherwise draw amplitude ≈ feature wavelength (seed 42's
+alpine drew 96 m relief on 82 m features → mean mesh slope 52°, >90 % of the map
+steeper than a UGV can climb). The cap consumes no RNG — same seed, same layout,
+drivable relief (seed 42: mean 52.6°→18.1°, <25° area 9 %→76 %). Raw
+`terraingen` keeps the cap off for aerial/scenery worlds.
+
 **Closed-loop robot sims — density is the RTF budget.** Gazebo's real-time
 factor tracks include count: a ~330-include `scenario` world runs at RTF ≈0.3–0.6
 (RTX 2070-class) while the 2,849-include demo forest collapses to RTF 0.03 —

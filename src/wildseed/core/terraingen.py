@@ -306,6 +306,27 @@ class TerrainSynthesizer:
             H = gaussian_filter(H, sigma=smooth_sigma)
         H = H - float(H.min())
 
+        # 6b. ground-robot slope cap. A preset can draw amplitude ~ feature
+        # wavelength (alpine drew A/λ ≈ 1.2 for seed 42 → mean mesh slope 52°,
+        # >90 % of the map steeper than a UGV can climb — nothing natural looks
+        # like that at metre scale). Mean slope is LINEAR in the height scale,
+        # so one rescale meets the target exactly; applied after smoothing
+        # (which changes gradients) and before the lake-floor readback (which
+        # must see final heights). 0 = off.
+        max_slope = float(self._p("max_mean_slope_deg", 0.0))
+        if max_slope > 0.0:
+            gy, gx = np.gradient(H, pixel_m)
+            mean_grad = float(np.mean(np.hypot(gx, gy)))
+            target = float(np.tan(np.radians(max_slope)))
+            if mean_grad > target:
+                k = target / mean_grad
+                H *= k
+                logger.info(
+                    f"terraingen: mean slope "
+                    f"{np.degrees(np.arctan(mean_grad)):.1f}° > cap "
+                    f"{max_slope:.0f}° — relief scaled by {k:.2f} "
+                    f"(z extent {float(np.ptp(H)):.1f} m)")
+
         # 7. read back lake floor levels in the final (post-shift) frame
         cx_mid = (res - 1) / 2.0
         for (cx, cy, depth, r_m) in basin_centers:

@@ -20,6 +20,10 @@ from wildseed.core.scenario import BIOME_NAMES, resolve_scenario
 @click.option("--size", type=int, default=192, help="DEM pixels per side. Default 192.")
 @click.option("--pixel", "pixel_m", type=float, default=1.6,
               help="Metres per DEM pixel (default 1.6, the demos' robot-scale value).")
+@click.option("--max-slope", "max_slope_deg", type=float, default=20.0,
+              help="Ground-robot slope cap (deg): rescale relief so the DEM's "
+                   "mean surface slope meets it. Default 20 (UGV-drivable); "
+                   "0 = off (aerial/scenery worlds).")
 @click.option("--manifest", type=click.Path(exists=True), default="assets/manifest.yaml",
               help="Asset manifest holding the per-biome palettes.")
 @click.option("--base-path", type=click.Path(), default=".",
@@ -27,8 +31,8 @@ from wildseed.core.scenario import BIOME_NAMES, resolve_scenario
 @click.option("--dry-run", is_flag=True, default=False,
               help="Print the resolved scenario spec (YAML) and exit without building.")
 @click.pass_context
-def scenario(ctx, seed, biome, preset, density_scale, size, pixel_m, manifest,
-             base_path, dry_run):
+def scenario(ctx, seed, biome, preset, density_scale, size, pixel_m,
+             max_slope_deg, manifest, base_path, dry_run):
     """Generate a complete randomized world from ONE master seed.
 
     Chains terraingen -> terrain -> ground (+ per-basin water) -> generate with
@@ -51,6 +55,7 @@ def scenario(ctx, seed, biome, preset, density_scale, size, pixel_m, manifest,
         biome=None if biome == "random" else biome,
         preset=None if preset == "random" else preset,
         density_scale=density_scale, size=size, pixel_m=pixel_m,
+        max_slope_deg=max_slope_deg,
     )
 
     import yaml

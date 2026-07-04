@@ -226,6 +226,12 @@ class TerrainGenConfig(BaseModel):
     creek_width_m: Optional[float] = Field(default=None, gt=0.0, description="Creek flat-bed width (metres).")
     edge_taper: Optional[float] = Field(default=None, ge=0.0, le=0.5, description="Border relief taper fraction (None -> preset/0.12; lakeland uses less to avoid a flooded perimeter).")
     smooth_sigma: float = Field(default=0.8, ge=0.0, le=5.0, description="Final anti-facet Gaussian smooth (pixels).")
+    max_mean_slope_deg: float = Field(
+        default=0.0, ge=0.0, le=60.0,
+        description="Ground-robot slope cap: if the synthesized DEM's mean surface "
+                    "slope exceeds this, the whole relief is rescaled to meet it "
+                    "exactly (slope is linear in height scale). 0 = off (aerial/"
+                    "scenery use). `scenario` defaults this to 20.")
     scale_factor: float = Field(default=1.0, gt=0.0, description="Mirror of TerrainConfig.scale_factor (for lake XY report).")
 
     @field_validator("preset")

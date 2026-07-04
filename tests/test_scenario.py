@@ -104,3 +104,16 @@ def test_wild_biomes_have_no_rows():
 
 def test_format_bumped_for_structured_biomes():
     assert SCENARIO_FORMAT >= 2
+
+
+def test_max_slope_in_spec_and_consumes_no_rng():
+    from wildseed.core.scenario import resolve_scenario
+    a = resolve_scenario(42)
+    b = resolve_scenario(42, max_slope_deg=0.0)
+    assert a["terrain_knobs"]["max_mean_slope_deg"] == 20.0   # scenario default ON
+    assert b["terrain_knobs"]["max_mean_slope_deg"] == 0.0
+    # the cap must not consume RNG draws: every other knob identical
+    ka = {k: v for k, v in a["terrain_knobs"].items() if k != "max_mean_slope_deg"}
+    kb = {k: v for k, v in b["terrain_knobs"].items() if k != "max_mean_slope_deg"}
+    assert ka == kb and a["density"] == b["density"]
+    assert a["scenario_format"] == 3

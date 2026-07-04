@@ -31,10 +31,14 @@ DEFAULT_OUT = "./dem/synth.tif"
 @click.option("--creek-width", "creek_width_m", type=float, default=None, help="Creek flat-bed width (m).")
 @click.option("--edge-taper", type=float, default=None, help="Border relief taper fraction (default 0.12).")
 @click.option("--smooth", "smooth_sigma", type=float, default=None, help="Final anti-facet smooth sigma px (default 0.8).")
+@click.option("--max-slope", "max_mean_slope_deg", type=float, default=None,
+              help="Ground-robot slope cap (deg): rescale relief so the mean "
+                   "surface slope meets it. Default off here (aerial/scenery); "
+                   "`scenario` defaults it to 20.")
 @click.pass_context
 def terraingen(ctx, preset, seed, resolution, pixel_m, out_path, amplitude_m, roughness,
                octaves, feature_m, ridged, detail, slope_m, n_peaks, n_basins, n_creeks,
-               creek_depth_m, creek_width_m, edge_taper, smooth_sigma):
+               creek_depth_m, creek_width_m, edge_taper, smooth_sigma, max_mean_slope_deg):
     """Synthesize a seeded procedural terrain as a GeoTIFF DEM.
 
     The output feeds the existing pipeline unchanged:
@@ -56,6 +60,7 @@ def terraingen(ctx, preset, seed, resolution, pixel_m, out_path, amplitude_m, ro
         ridged=ridged, detail=detail, slope_m=slope_m, n_peaks=n_peaks, n_basins=n_basins,
         n_creeks=n_creeks, creek_depth_m=creek_depth_m, creek_width_m=creek_width_m,
         edge_taper=edge_taper, smooth_sigma=smooth_sigma,
+        max_mean_slope_deg=max_mean_slope_deg,
     ).items():
         if val is not None:
             kwargs[name] = val
