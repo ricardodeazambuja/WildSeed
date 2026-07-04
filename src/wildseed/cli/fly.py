@@ -1,4 +1,4 @@
-"""Seeded rig flight CLI subcommand (docs/SENSOR_RIG_PLAN.md Phase 2)."""
+"""Seeded rig flight CLI subcommand (docs/SENSOR_RIG.md)."""
 
 from pathlib import Path
 

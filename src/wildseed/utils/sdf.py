@@ -36,18 +36,24 @@ def _add_plugins(world: ET.Element) -> None:
 
 
 def _add_lighting(world: ET.Element) -> None:
-    """Add directional sun light."""
+    """Add directional sun light.
+
+    The sun must be the dominant light so its shadows stay visible — fill
+    lights (see ForestGenerator._add_extra_lighting) are kept far below it.
+    Direction gives a ~40 deg elevation: long readable shadows without the
+    scene going golden-hour dark.
+    """
     sun = ET.SubElement(world, "light", {"name": "sun", "type": "directional"})
     ET.SubElement(sun, "cast_shadows").text = "true"
     ET.SubElement(sun, "pose").text = "0 0 10 0 0 0"
-    ET.SubElement(sun, "diffuse").text = "0.8 0.8 0.8 1"
-    ET.SubElement(sun, "specular").text = "0.2 0.2 0.2 1"
+    ET.SubElement(sun, "diffuse").text = "1.0 0.97 0.88 1"
+    ET.SubElement(sun, "specular").text = "0.3 0.3 0.3 1"
     sun_attenuation = ET.SubElement(sun, "attenuation")
     ET.SubElement(sun_attenuation, "range").text = "1000"
     ET.SubElement(sun_attenuation, "constant").text = "0.9"
     ET.SubElement(sun_attenuation, "linear").text = "0.01"
     ET.SubElement(sun_attenuation, "quadratic").text = "0.001"
-    ET.SubElement(sun, "direction").text = "-0.5 0.1 -0.9"
+    ET.SubElement(sun, "direction").text = "-0.6 0.3 -0.75"
 
 
 def add_ground_plane(world: ET.Element) -> None:

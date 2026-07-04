@@ -1,4 +1,4 @@
-"""Tests for seeded trajectory synthesis (docs/SENSOR_RIG_PLAN.md Phase 2)."""
+"""Tests for seeded trajectory synthesis (docs/SENSOR_RIG.md)."""
 
 import json
 import math

@@ -11,7 +11,7 @@ Columns — keep them filled at evaluation time, not retroactively.
 
 | id | category | name | source + URL | license | poly (visual/coll) | tex res | size | notes |
 |----|----------|------|--------------|---------|--------------------|---------|------|-------|
-| rock-namaqualand_boulder_04 | rock | Namaqualand Boulder 04 (grey granite, lichen) | Poly Haven · https://polyhaven.com/a/namaqualand_boulder_04 | **CC0** | ~30 k tris visual (LOD0 59k → realism 0.5) / **convex-hull** collision (~80 tris) | 2K albedo, 1K normal+rough | 22 MB glb | **USED — renders normal-mapped on GPU.** Single clean Principled BSDF (no node group, no alpha) → normalize = keep LOD0 + downscale nor/rough to 1K + pack (`tools/normalize` inline). Converted with `configs/realism.yaml` (rock: visual 0.5 + convex_hull). 1.9 m base; `generate` scales ×0.5–2.0. **Note:** diffuse has heavy orange iron/lichen staining — for a cleaner grey granite like the reference, try `boulder_01` / `rock_07` in P3. Proof: `tools/archive/hero_scene.png`, `tools/archive/scene_sidebyside.png`. |
+| rock-namaqualand_boulder_04 | rock | Namaqualand Boulder 04 (grey granite, lichen) | Poly Haven · https://polyhaven.com/a/namaqualand_boulder_04 | **CC0** | ~30 k tris visual (LOD0 59k → realism 0.5) / **convex-hull** collision (~80 tris) | 2K albedo, 1K normal+rough | 22 MB glb | **USED — renders normal-mapped on GPU.** Single clean Principled BSDF (no node group, no alpha) → normalize = keep LOD0 + downscale nor/rough to 1K + pack (`tools/normalize` inline). Converted with `configs/realism.yaml` (rock: visual 0.5 + convex_hull). 1.9 m base; `generate` scales ×0.5–2.0. **Note:** diffuse has heavy orange iron/lichen staining — for a cleaner grey granite, try `boulder_01` / `rock_07`. Sample renders: `tools/archive/hero_scene.png`, `tools/archive/scene_sidebyside.png`. |
 | terrain-Grass004 | soil/terrain | ambientCG Grass 004 (PBR ground) | ambientCG · https://ambientcg.com/view?id=Grass004 | **CC0** | n/a (terrain UV-tiled) | 2K Color + 1K NormalGL + Roughness | ~36 MB (3 PNGs) | **Base grass.** Used as the `uniform` base and the `patchy` base layer (see ground compositor below). |
 | terrain-Ground027 | soil | ambientCG Ground 027 (sand/tan) | ambientCG · https://ambientcg.com/view?id=Ground027 | **CC0** | n/a | 1K | ~3 MB | Sand overlay layer. |
 | terrain-Ground054 | soil | ambientCG Ground 054 (brown dirt) | ambientCG · https://ambientcg.com/view?id=Ground054 | **CC0** | n/a | 1K | ~3 MB | **Trail/dirt** overlay (the winding path). |
@@ -20,10 +20,10 @@ Columns — keep them filled at evaluation time, not retroactively.
 | terrain-Snow006 | soil | ambientCG Snow 006 | ambientCG · https://ambientcg.com/view?id=Snow006 | **CC0** | n/a | 1K | ~3 MB | **Snow biome** base. |
 | terrain-Ground037 | soil | ambientCG Ground 037 (olive dry) | ambientCG · https://ambientcg.com/view?id=Ground037 | **CC0** | n/a | 1K | ~3 MB | Bare-ground patch (snow biome). |
 
-> **Ground compositor (`tools/make_ground.py`) — the patchy-terrain capability.** Replicates how the *original* Forest3D made its Soil 1/2/3 references (single PBR material extracted from a `soil.blend` via `extract_terrain_texture`; the variation is whatever's baked into the source image, mapped at low tiling) **and extends it** with controllable variation the original lacks: seeded `patchy` mode bakes a 1:1 composite of a base + overlay layers (sand/gravel/pebble **patches** via seeded noise blobs, **trails** via explicit waypoints *or* random walk, soft mask edges, normals lerp+renormalised). `uniform` mode keeps the crisp tiled single material (feed a varied texture at low `--tile` to match the originals). Output is one `<pbr><metal>` material — the same path P2 proved in gz. Bake resolution is the only crispness lever (4K default ≈ 5 cm/texel ≈ ~78 MB for 3 maps; 8K sharper but ~4× footprint — like the originals, patchy is softer up close than uniform tiling, which the original accepted). Seeded → reproducible. **TODO:** fold into `wildseed terrain` as a `--ground-mode uniform|patchy` + layer/trail spec. Proof: `tools/archive/ground_capability.png`, `tools/archive/patchy_cam_*.png`, `tools/archive/ground_topdown.png`.
-| tree-island_tree_01 | tree | Island Tree 01 (acacia-like, sparse foliage) | Poly Haven · https://polyhaven.com/a/island_tree_01 | **CC0** | 490 k tris visual (LOD1) / trunk-cylinder collision (~92 tris) | 2K albedo, 1K normal+rough | **102 MB glb** (textures embedded) | **P1 HERO — passes §7 checks.** Normalized via `tools/normalize_island_tree.py`: kept the LOD1 object (file ships LOD0 812k + LOD1 490k + kit pieces + geometry-nodes — exporting all = 1.7M overlapping tris), **rebuilt leaf material** as Principled BSDF (custom node GROUP in source is unreadable by the glTF exporter) with alpha→`Math:GreaterThan(0.5)`→Alpha so Blender 4.2 writes **alphaMode=MASK** (EEVEE-Next dropped CLIP; exporter now reads the node pattern, not `blend_method`), branches/trunk set OPAQUE (solid geometry), nor/rough downscaled to 1K. Converted with `configs/realism.yaml` (tree: visual 1.0 + skip-foliage + trunk_cylinder). Renders upright on GPU (NVIDIA, not llvmpipe) with **transparent foliage (sky between leaves)**, textured bark, cast shadows; ground lidar 2403/5760 returns. **glb 102 MB is over the §6 budget** → P3 TODO: drop to LOD-lower / 2K→1K albedo / decimate solid branches, target tens of MB. Proof: `tools/archive/hero_closeup.png`, `tools/archive/hero_sidebyside.png`, `tools/archive/hero_cam_*.png`. |
+> **Ground compositor (`tools/make_ground.py`) — the patchy-terrain capability.** Replicates how the *original* Forest3D made its Soil 1/2/3 references (single PBR material extracted from a `soil.blend` via `extract_terrain_texture`; the variation is whatever's baked into the source image, mapped at low tiling) **and extends it** with controllable variation the original lacks: seeded `patchy` mode bakes a 1:1 composite of a base + overlay layers (sand/gravel/pebble **patches** via seeded noise blobs, **trails** via explicit waypoints *or* random walk, soft mask edges, normals lerp+renormalised). `uniform` mode keeps the crisp tiled single material (feed a varied texture at low `--tile`). Output is one `<pbr><metal>` material. Bake resolution is the only crispness lever (4K default ≈ 5 cm/texel ≈ ~78 MB for 3 maps; 8K sharper but ~4× footprint; patchy is softer up close than uniform tiling). Seeded → reproducible. **TODO:** fold into `wildseed terrain` as a `--ground-mode uniform|patchy` + layer/trail spec. Sample renders: `tools/archive/ground_capability.png`, `tools/archive/patchy_cam_*.png`, `tools/archive/ground_topdown.png`.
+| tree-island_tree_01 | tree | Island Tree 01 (acacia-like, sparse foliage) | Poly Haven · https://polyhaven.com/a/island_tree_01 | **CC0** | 490 k tris visual (LOD1) / trunk-cylinder collision (~92 tris) | 2K albedo, 1K normal+rough | **102 MB glb** (textures embedded) | **USED (hero tree).** Normalized via `tools/normalize_island_tree.py`: kept the LOD1 object (file ships LOD0 812k + LOD1 490k + kit pieces + geometry-nodes — exporting all = 1.7M overlapping tris), **rebuilt leaf material** as Principled BSDF (custom node GROUP in source is unreadable by the glTF exporter) with alpha→`Math:GreaterThan(0.5)`→Alpha so Blender 4.2 writes **alphaMode=MASK** (EEVEE-Next dropped CLIP; exporter now reads the node pattern, not `blend_method`), branches/trunk set OPAQUE (solid geometry), nor/rough downscaled to 1K. Converted with `configs/realism.yaml` (tree: visual 1.0 + skip-foliage + trunk_cylinder). Renders upright on GPU (NVIDIA, not llvmpipe) with **transparent foliage (sky between leaves)**, textured bark, cast shadows; ground lidar 2403/5760 returns. **glb 102 MB is over the size budget** → TODO: drop to LOD-lower / 2K→1K albedo / decimate solid branches, target tens of MB. Sample renders: `tools/archive/hero_closeup.png`, `tools/archive/hero_sidebyside.png`, `tools/archive/hero_cam_*.png`. |
 
-### Added for demo scenarios (overnight 2026-06-27) — all Poly Haven, **CC0**
+### Added for demo scenarios (2026-06-27) — all Poly Haven, **CC0**
 
 Fetched via `tools/fetch_polyhaven.py <id> 1k <dir>` (glTF bundle), normalized with
 `tools/import_gltf.py` (recenter + base-to-z0 + foliage-alpha MASK fix), converted with
@@ -52,7 +52,7 @@ regenerable from these ids + scripts).
 | date | category | name | source | reason rejected |
 |------|----------|------|--------|-----------------|
 | 2026-07-03 | grass | moss_01 | Poly Haven (CC0) | photoscan sprig is 15 cm long; at grass placement scales (0.25-0.7x) it's invisible ground clutter — useless as scatter. Converted fine (3.2 MB); dropped from manifest+palettes. |
-| 2026-06-27 | tree/rock/bush | `make_assets.py` procedural primitives (cones/cylinders/icospheres) | self-authored (`tools/make_assets.py`) | Proved the *pipeline* only. Too low-poly + flat-color to match the reference screenshots. Kept as a smoke-test asset set, NOT for realistic worlds. |
+| 2026-06-27 | tree/rock/bush | `make_assets.py` procedural primitives (cones/cylinders/icospheres) | self-authored (`tools/make_assets.py`) | Proved the *pipeline* only. Too low-poly + flat-color for realistic worlds. Kept as a smoke-test asset set. |
 
 ## Source shortlist (license posture — verify per-asset at adoption time)
 
@@ -72,23 +72,20 @@ CGTrader free) — the repo is public.
 | [OpenGameArt](https://opengameart.org) | community models/textures | per-asset **CC0 / CC-BY / CC-BY-SA / GPL** — check each | odd species, ground clutter |
 | [Quaternius](https://quaternius.com) | stylized low-poly nature packs, direct zip download | **CC0** | stylized/DR worlds, prototyping |
 | [Kenney Nature Kit](https://kenney.nl/assets/nature-kit) | game-ready, **stylized/low-poly** | **CC0** | prototyping only — not photoreal |
-| [Fab / Quixel Megascans](https://www.fab.com) | photoreal trees, boulders, 3D plants, scatter (the screenshot look) | **Fab Standard License** — internal sim use OK, **no redistribution** → excluded by policy | (reference only) |
+| [Fab / Quixel Megascans](https://www.fab.com) | photoreal trees, boulders, 3D plants, scatter | **Fab Standard License** — internal sim use OK, **no redistribution** → excluded by policy | (reference only) |
 | [BlenderKit](https://www.blenderkit.com) | trees/shrubs/grass with pre-wired alpha foliage | **CC0 or RF** — RF forbids redistribution → CC0-filtered only | alpha-foliage trees (CC0 subset) |
 
 > Redistribution note: anything adopted under CC-BY/CC-BY-SA gets its author + license
 > in the USED table AND the README credits section. NC/ND/RF assets are not adopted at
 > all — the repo and the generated worlds that embed `.glb` copies are public.
 
-## Variety upgrade plan — closing the gap to the upstream screenshots (2026-06-28)
+## Variety upgrade plan (2026-06-28)
 
-**Why our worlds look thinner than upstream's `Screenshot from 2026-01-*.png`:** upstream ships
-**no** assets (all `Blender-Assets/` are `.gitkeep`; `.gitignore` blocks `*.blend`). Git history
-(`unitsSpaceLab` commits `7c3c7bf5`→`5461dc8d`) shows they rendered with **commercial** libraries:
-**Maxtree "Plant Models Vol. 60"** (`MT_PM_V60_*`, ≥14 photoscanned species — maples, alder, agave,
-rockrose, real turf grasses) + **Quixel Megascans** rocks/sand (`photoscanned-rock-03`, `sand-dune`,
-`coast-land-rocks-04`). Theme = coastal/Mediterranean dune. Those blobs are recoverable from history
-but are **not redistributable** → we match the *look* with CC0 instead. The gap is asset **variety**,
-not the pipeline.
+**Context:** the upstream project ships **no** assets (all `Blender-Assets/` are
+`.gitkeep`; `.gitignore` blocks `*.blend`) and its own renders used **commercial**
+libraries (Maxtree, Quixel Megascans) that are **not redistributable** → we build the
+look with freely-redistributable assets instead. The gap is asset **variety**, not
+the pipeline.
 
 **Confirmed 2026 licensing (verified 2026-06-28):**
 - **Quixel Megascans** — PAID since 2025-01-01 (only a small rotating free set). Fab Standard License
@@ -101,17 +98,15 @@ not the pipeline.
 
 | rank | source | what | license | variety | notes |
 |------|--------|------|---------|---------|-------|
-| 1 | **ffish.asia / floraZia** (Sketchfab) · https://sketchfab.com/ffishAsia-and-floraZia | photoscanned real organisms incl. **land plants/grasses/weeds with scientific binomial names** (e.g. *Beckmannia syzigachne*, *Hordeum vulgare*) | **CC0** (Kyushu Univ. / QOU public-domain catalog) | **3,026 models** | **THE variety fix.** Downloadable glTF/USDZ + original (.obj/.fbx/.blend). Free Sketchfab account, ~50 dl/day rate limit. Real species → photoreal like Maxtree, but CC0. |
+| 1 | **ffish.asia / floraZia** (Sketchfab) · https://sketchfab.com/ffishAsia-and-floraZia | photoscanned real organisms incl. **land plants/grasses/weeds with scientific binomial names** (e.g. *Beckmannia syzigachne*, *Hordeum vulgare*) | **CC0** (Kyushu Univ. / QOU public-domain catalog) | **3,026 models** | Downloadable glTF/USDZ + original (.obj/.fbx/.blend). Free Sketchfab account, ~50 dl/day rate limit. Real species → photoreal like Maxtree, but CC0. |
 | 2 | **Sapling Tree Gen** (built-in) + **geometry-nodes grass** | procedural windswept coastal trees, marram-grass clumps, shrubs | code GPL; **generated mesh output is yours** → ship as CC0/MIT | **infinite** | zero licensing risk; best for grass clumps + bent coastal trees. Geometry-nodes templates must themselves be CC0/self-authored. |
 | 3 | **Poly Haven** · https://polyhaven.com/models | photoscanned rocks/boulders, tree trunks, some veg | **CC0** | ~100–150 nature models | already in pipeline; the redistributable Megascans-rock equivalent. Best for hero rocks + sand/coastal-clay material. |
 | 4 | **ambientCG** · https://ambientcg.com | 2,000+ PBR **textures** (sand, gravel, coastal clay, bark) + a few debris meshes | **CC0** | textures only | already in pipeline for terrain/retexturing. |
 | — | Gazebo Fuel · https://app.gazebosim.org/fuel/models | sim models | mixed (often **CC-BY/CC-BY-SA** — MIT-compatible *with attribution*, verify per asset) | ~50–100, low-poly | verify+credit each; mostly low-poly. |
 | ✗ | Megascans/Fab, BlenderKit-RF, Grass-Free addon (no formal license) | — | non-redistributable / legal gray area | — | do NOT ship raw. |
 
-**Next action:** harvest a coastal/Mediterranean species set from ffish.asia (grasses + shrubs to
-mirror the Maxtree list), run each through the existing `import_gltf.py` (recenter/base-to-z0/foliage
-alpha→MASK) → `wildseed convert`, log each in the USED table with its Sketchfab URL + CC0. Augment
-sparse categories (windswept trees, dense marram grass) procedurally via Sapling/geometry-nodes.
+**Open follow-up:** ffish.asia remains the largest untapped CC0 species pool (grasses/shrubs);
+adopting from it means `import_gltf.py` normalization + a USED-table entry with Sketchfab URL per asset.
 
 ## Variety harvest (2026-07-03) — 15 new Poly Haven assets, all **CC0**
 
@@ -153,9 +148,8 @@ never ship an alpha map, so the signal is safe.
 
 ## Diversity harvest (2026-07-03, Poly Haven catalogue review) — 15 new assets, all **CC0**
 
-Found by browsing the Poly Haven nature catalogue (110 models; we used 37) after the
-user green-lit non-CC0 redistributable licenses (see policy above) — Poly Haven's
-credential-free CC0 API still had everything needed, so no Sketchfab token required.
+Found by browsing the Poly Haven nature catalogue — its credential-free CC0 API had
+everything needed, so no Sketchfab token was required.
 Focus: forest-floor deadwood, mossy/barren rock variety, and species for the thin
 biomes. Built by the standard manifest pipeline, sha256-locked.
 

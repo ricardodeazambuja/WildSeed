@@ -45,7 +45,7 @@ from wildseed.core.forest import WorldPopulator
     "--rig", "rig_flag", is_flag=True,
     help="Include the flying sensor rig (regenerates models/sensor_rig, adds "
          "the sensor system plugins + spherical coordinates to the world). "
-         "See `wildseed rig` and docs/SENSOR_RIG_PLAN.md."
+         "See `wildseed rig` and docs/SENSOR_RIG.md."
 )
 @click.option(
     "--rig-config", "rig_config_path", type=click.Path(exists=True), default=None,

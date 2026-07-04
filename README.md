@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="WildSeed — reproducible wilderness for robot perception" width="480"/>
+</p>
+
 # WildSeed — reproducible wilderness for robot perception
 
 **One seed, a whole wilderness.** WildSeed generates randomized, feature-rich outdoor
@@ -19,6 +23,29 @@ camera-plugin snippet, see `wildseed weather --show-lens-flare-snippet`.)
 *Three master seeds, three worlds: `--seed 101` grows a lakeland wetland,
 `--seed 107` rolling temperate hills, `--seed 108` an alpine massif. Same seed →
 identical world, always.*
+
+## Demo videos
+
+**Orbit over the temperate-hills demo scenario** — `wildseed record -p orbit --seed 5`
+(kinematic, 20 fps):
+
+<!-- drag & drop runs/demo_videos/web/wildseed_temperate_orbit_seed5.mp4 below this line -->
+
+**Low flythrough through a dense temperate build** (~2,500 instances, single-sun
+shadows + procedural sky) — `wildseed record -p flythrough --seed 11 --agl 6`
+(kinematic, terrain-following):
+
+<!-- drag & drop runs/demo_videos/web/wildseed_temperate_flythrough_seed11.mp4 below this line -->
+
+**Dynamic "hand-of-god" dolly with a physically consistent IMU** —
+`wildseed record -p dolly --seed 3 --mode dynamic --dataset` (PD-wrench flight,
+3 cm mean tracking error, full lidar/IMU/GPS/ground-truth dataset dumped alongside):
+
+<!-- drag & drop runs/demo_videos/web/wildseed_dynamic_dolly_honest_imu_seed3.mp4 below this line -->
+
+*Every flight is byte-reproducible: same seed ⇒ same trajectory ⇒ same video.
+Recorded with [`wildseed record`](#test-worlds-with-the-sensor-rig-fly--record); the
+videos are hosted as GitHub attachments and are not part of the repository.*
 
 ## Pipeline
 
@@ -113,10 +140,8 @@ Density is fully tunable per category — `wildseed generate --density
 - **[docs/TUTORIAL.md](docs/TUTORIAL.md)** — build & randomize a world in 5 minutes
 - **[docs/TERRAIN_GENERATOR.md](docs/TERRAIN_GENERATOR.md)** — `terraingen` reference (presets, all knobs, lakes)
 - **[docs/SCENARIOS.md](docs/SCENARIOS.md)** — the 6 demo scenarios + density tuning
-- **[docs/REALISTIC_DEMOS_PLAN.md](docs/REALISTIC_DEMOS_PLAN.md)** — how the reproducible CC0 asset set is sourced
-- **[docs/DEMO_REALISM_V2_REPORT.md](docs/DEMO_REALISM_V2_REPORT.md)** — how the demos were made VIO/LIO-usable + measurably closer to the reference screenshots (the honest CC0 ceiling)
-- **[docs/baseline_metrics.md](docs/baseline_metrics.md)** — the image-level metric harness (`tools/compare.py`) + before/after numbers per phase
-- **[docs/history/](docs/history/)** — superseded planning notes, kept for provenance
+- **[tools/ASSET_REGISTRY.md](tools/ASSET_REGISTRY.md)** — per-asset sources, licenses, and the asset-sourcing policy
+- **[docs/history/](docs/history/)** — superseded planning notes and reports, kept for provenance
 
 ### Reproducibility
 
@@ -138,8 +163,7 @@ credits in [tools/ASSET_REGISTRY.md](tools/ASSET_REGISTRY.md)).
 
 ## Gotchas, best practices & caveats
 
-Hard-won lessons (and the cheapest way to avoid each). These cost real debugging time — read
-them before the demo/realism pipeline surprises you.
+Common pitfalls and how to avoid each — worth reading before running the demo pipeline.
 
 - **Rendering needs a real GPU (ogre2/EGL).** The scenario/metric renders use the `ogre2`
   engine via EGL. Run them in the `wildseed:egl` image with `--gpus all` and
@@ -155,19 +179,12 @@ them before the demo/realism pipeline surprises you.
   the workspace source win. Symptom if you forget: metrics/output identical after a "change."
   (CLI flags and the `tools/*.py` scripts take effect without this — they read the live files.)
 - **Determinism is a feature — use `--seed`.** Same `--seed` + preset → byte-identical DEM and
-  identical placement. The 6 demo scenarios reproduce exactly from a clean build (verified: the
-  rendered PNGs are byte-identical across rebuilds). Vary the seed to get a fresh-but-reproducible
-  world for VIO/LIO test runs.
+  identical placement. The 6 demo scenarios reproduce exactly from a clean build. Vary the
+  seed to get a fresh-but-reproducible world for VIO/LIO test runs.
 - **Single-scene builds leave the gallery with one panel.** `FOREST_SCN=savanna_flats python3
   tools/build_scenarios.py` renders only that scene, so the 6-panel `tools/scenarios_gallery.png`
   ends up with a single panel. Rebuild the galleries from the frames on disk with
   `python3 tools/regen_galleries.py` (no re-render needed).
-- **CC0 ceiling — what "realistic" does and doesn't mean here.** The demo assets are free **CC0**
-  (Poly Haven), *not* the commercial Maxtree foliage / Megascans scans in the reference
-  screenshots. So the demos match **composition, density, variety, terrain shape and ground
-  non-repetition** — not per-asset fidelity: CC0 foliage reads darker/sparser at distance, and
-  bare-sand biomes keep genuine surface relief. The gap is measured, not hidden — see
-  [docs/DEMO_REALISM_V2_REPORT.md](docs/DEMO_REALISM_V2_REPORT.md).
 - **Foliage must export as `alphaMode=MASK`, or you get black blobs.** Poly Haven foliage wires
   leaf transparency through a custom node group the glTF exporter can't read → it exports
   `alphaMode=BLEND` → dense double-sided leaves render as dark depth-sorted blobs.
@@ -175,10 +192,9 @@ them before the demo/realism pipeline surprises you.
   `Math:GreaterThan(0.5)→Alpha` so Blender 4.2 writes `MASK`. **Verify:** the `.glb` material's
   `alphaMode` must be `MASK` (not `BLEND`). Also prefer the *assembled* `<id>_LOD<n>` tree object
   (>100k tris), not the kit pieces (a few hundred tris → flat cards).
-- **The metric harness lives in-container.** `tools/compare.py` (needs `opencv-python-headless`,
-  already in `:egl`) quantifies the realism gap against the 3 reference screenshots. Crop the
-  Gazebo GUI (toolbar/playbar) from screenshots first — it does this for the bundled originals.
-  `tools/quickmetric.py <scene>` gives a fast single-scene readout.
+- **The metric harness lives in-container.** `tools/compare.py` and `tools/quickmetric.py <scene>`
+  (need `opencv-python-headless`, already in `:egl`) give image-level feature metrics
+  (ORB/FAST density, coverage, tiling autocorrelation) for rendered scenes.
 - **For a *true* freeze, save the image, don't rebuild it** (see the apt caveat above).
 
 ## Features
@@ -191,13 +207,11 @@ them before the demo/realism pipeline surprises you.
   missing plants, waviness), the loop-closure stress test wilderness scatter can't produce
 - **Ground Truth**: every world ships a `.instances.json` sidecar (model, category, pose,
   scale per placed instance) + per-category `laser_retro` labels so lidar intensity doubles
-  as a semantic class channel (verified end-to-end: the labels ride on the *visuals*, which
-  is what gz's GPU lidar actually reads) + per-instance `Label` plugins so segmentation
-  cameras see the same class ids
+  as a semantic class channel + per-instance `Label` plugins so segmentation cameras see
+  the same class ids
 - **Sensor Rig**: `wildseed rig` + `generate --rig` drop a flying sensor platform into any
   world — stereo + wide-angle + RGB-D + instance-segmentation cameras, 16-ch 3D lidar, IMU,
-  GPS, barometer, magnetometer, ground-truth odometry — every stream verified headless
-  ([docs](docs/SENSOR_RIG_PLAN.md))
+  GPS, barometer, magnetometer, ground-truth odometry ([docs](docs/SENSOR_RIG.md))
 - **Seeded Flights & Recording**: `wildseed fly` (orbit/flythrough/lawnmower/dolly,
   terrain-following, byte-reproducible per seed) and `wildseed record` (demo `video.mp4` +
   optional lidar/IMU/GPS/ground-truth dataset). Kinematic mode for camera work; dynamic
@@ -326,7 +340,7 @@ wildseed record -p dolly --seed 5 --mode dynamic --dataset # honest IMU (PD wren
 
 Same seed ⇒ byte-identical trajectory. Kinematic mode teleports the rig
 (smoothest camera; IMU meaningless); dynamic mode pushes it with forces
-(physics-consistent IMU). Details: [docs/SENSOR_RIG_PLAN.md](docs/SENSOR_RIG_PLAN.md).
+(physics-consistent IMU). Details: [docs/SENSOR_RIG.md](docs/SENSOR_RIG.md).
 
 ## CLI Reference
 
@@ -390,10 +404,10 @@ WildSeed/
 ├── tools/                 # Dev/build tooling for the reproducible demos (NOT the library)
 │   ├── build_assets.py    #   fetch + convert the CC0 Poly Haven asset set
 │   ├── build_scenarios.py #   build + render all 6 demo scenarios
-│   ├── compare.py         #   image-level metric harness vs the reference screenshots
+│   ├── compare.py         #   image-level feature-metric harness (ORB/FAST, coverage, tiling)
 │   ├── normalize_blend.py #   Blender asset normalizer (MASK foliage, LOD/variant pick)
 │   ├── ASSET_REGISTRY.md  #   per-asset source + license credits
-│   └── archive/           #   one-off spike-era diagnostic renders (historical)
+│   └── archive/           #   one-off diagnostic renders
 ├── dem/                   # DEM files (GeoTIFF); bundled samples + seeded synth_*.tif (gitignored)
 ├── Blender-Assets/        # Source .blend files (gitignored; .gitkeep per category)
 │   ├── tree/  rock/  bush/  grass/  soil/
@@ -403,8 +417,8 @@ WildSeed/
 ├── worlds/                # Generated world files (gitignored)
 ├── configs/               # Configuration presets (default.yaml, realism.yaml, examples/)
 ├── assets/                # Demo asset manifest + source-hash lock (manifest.yaml, .lock.yaml)
-├── docs/                  # Tutorials, terrain/scenario refs, realism report + metrics
-│   └── history/           #   superseded planning notes, kept for provenance
+├── docs/                  # Tutorials + feature references
+│   └── history/           #   superseded planning notes
 ├── tests/                 # pytest suite
 └── docker/                # Dockerfiles (base + .egl GPU render), constraints, compose
 ```
@@ -513,17 +527,13 @@ WildSeed began as a fork of
 procedural-placement pipeline for Gazebo is his work, and that project's commit
 history (authors, dates, messages) is preserved in this repository (asset binaries
 under the gitignored `models/` and `Blender-Assets/` paths were scrubbed from history
-because some were commercial and not redistributable). The three reference
-screenshots the metric harness compares against (`Screenshot from 2026-01-*.png`)
-are renders from that project and are **not** distributed here (gitignored) —
-drop your own copies in the repo root to run `tools/compare.py`. Thank you, Khalid.
+because some were commercial and not redistributable). Thank you, Khalid.
 
 On top of that foundation, WildSeed added the seeded procedural terrain synthesizer,
 the seeded patchy-ground compositor with per-basin water, the master-seed `scenario`
 orchestrator, the manifest-driven CC0 asset pipeline, the image-level realism metric
 harness, and the reproducibility guarantees (pinned Docker, sha256-locked assets,
-byte-identical worlds per seed). Documents under [docs/history/](docs/history/) and
-the realism reports predate the rename and refer to the project as Forest3D.
+byte-identical worlds per seed).
 
 Several capabilities are adapted from
 **[CropCraft](https://github.com/ricardodeazambuja/cropcraft)** (INRAE,
@@ -562,9 +572,6 @@ sha256s is [assets/manifest.yaml](assets/manifest.yaml) + `assets/manifest.lock.
 (bare ground). These feed the seeded ground compositor (`wildseed ground`).
 
 **Other bundled data.** The sample DEMs in `dem/` (`terrain.tif`, `demgazebo.dem`, …)
-and the three reference screenshots come from the upstream Forest3D project (see
-Credits above); the screenshots are used only as metric-harness reference images —
-the commercial Maxtree/Megascans assets *shown in them* are not included in, nor
-downloadable through, WildSeed. The procedural landforms (`wildseed terraingen`) are
-self-authored math — no external asset involved.
+come from the upstream Forest3D project (see Credits above). The procedural landforms
+(`wildseed terraingen`) are self-authored math — no external asset involved.
 

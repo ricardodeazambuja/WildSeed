@@ -1,4 +1,4 @@
-"""Sensor rig generation CLI subcommand (docs/SENSOR_RIG_PLAN.md Phase 1)."""
+"""Sensor rig generation CLI subcommand (docs/SENSOR_RIG.md)."""
 
 from pathlib import Path
 
@@ -30,7 +30,7 @@ def rig(ctx, config_path, models_dir, name, inject_world, pose_str):
     Full suite by default: stereo cams, wide-angle, RGB-D, instance
     segmentation, 16-ch 3D lidar, IMU, GPS, barometer, magnetometer and a
     ground-truth odometry publisher — every stream verified headless on gz
-    Harmonic (see docs/SENSOR_RIG_PLAN.md). Include it in worlds with
+    Harmonic (see docs/SENSOR_RIG.md). Include it in worlds with
     `wildseed generate --rig` (adds the required world plugins too).
 
     \b

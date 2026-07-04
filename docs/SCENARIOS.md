@@ -9,7 +9,7 @@ from `docs/TUTORIAL.md`).
 ## Reproduce everything in two steps
 
 ```bash
-# 1. Build the asset set (fetch -> normalize -> convert; idempotent, ~50 assets, all CC0 today)
+# 1. Build the asset set (fetch -> normalize -> convert; idempotent, ~50 assets, all CC0)
 python3 tools/build_assets.py
 
 # 2. Build all six scenarios + render the galleries
@@ -25,8 +25,8 @@ and writes `assets/manifest.lock.yaml` with each source's sha256. All assets are
 For VIO/LIO test campaigns you usually want *many* varied worlds, not the six
 fixed demos. `wildseed scenario` generates a complete world from **one master
 seed**: it derives per-stage seeds (`SeedSequence.spawn`), draws the biome,
-terrain preset/knobs and densities from per-biome envelopes (the ranges the six
-demos were tuned in — see `BIOME_SPACE` in `src/wildseed/core/scenario.py`), runs
+terrain preset/knobs and densities from per-biome envelopes (see `BIOME_SPACE`
+in `src/wildseed/core/scenario.py`), runs
 `terraingen → terrain → ground → generate` (plus per-basin water when the biome
 calls for it), and constrains species to the biome's palette from
 `assets/manifest.yaml`.

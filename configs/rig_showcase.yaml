@@ -1,0 +1,17 @@
+# Showcase sensor-rig config: full-HD single camera for README demo videos.
+# Same idea as rig_cinematic.yaml (everything but the main camera off) at
+# 1920x1080 — recording runs on sim time, so the heavier render only costs
+# wall-clock while recording, not video smoothness. Use with:
+#   wildseed generate --rig --rig-config configs/rig_showcase.yaml
+camera:
+  width: 1920
+  height: 1080
+  fov: 1.1
+  rate: 20.0
+  far: 3000.0
+stereo_baseline: 0.0   # single camera
+rgbd: false
+wideangle: false
+segmentation: false
+lidar:
+  enabled: false

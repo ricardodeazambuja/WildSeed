@@ -1,4 +1,4 @@
-"""Tests for the recording pipeline (docs/SENSOR_RIG_PLAN.md Phase 3).
+"""Tests for the recording pipeline (docs/SENSOR_RIG.md).
 
 RunRecorder callbacks are exercised with protobuf-shaped fakes so the tests
 need no gz installation; encoding uses real cv2.

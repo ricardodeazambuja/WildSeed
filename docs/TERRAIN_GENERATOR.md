@@ -1,11 +1,11 @@
 # Procedural Terrain Generator (`wildseed terraingen`)
 
 Synthesize **seeded, varied landforms** — hills, mounts, valleys, flatlands,
-basins→lakes, creeks — instead of meshing a single fixed DEM. The same `--seed`
+basins→lakes, creeks. The same `--seed`
 always reproduces the same terrain (so a whole VIO/lidar test scenario can be
 regenerated exactly); a new seed gives a new world.
 
-It writes a **GeoTIFF DEM**, which feeds the existing, proven pipeline unchanged:
+It writes a **GeoTIFF DEM**, which feeds the rest of the pipeline (terrain → ground → generate):
 
 ```mermaid
 flowchart LR
@@ -126,9 +126,7 @@ set for parity but optional). Everything is driven by `numpy.random.default_rng(
 
 ## Reproducibility
 
-`terraingen --seed N` twice → identical DEM. `tests/test_terraingen.py` guards seed
-reproducibility (on the read-back raster), the preset registry, basin/lake sanity,
-creek visibility, the `--detail` decoupling, and the GeoTIFF round-trip.
+`terraingen --seed N` twice → identical DEM.
 
 ## Gallery
 

@@ -617,34 +617,31 @@ class WorldPopulator:
             world: World XML element to add settings to.
         """
         scene = ET.SubElement(world, "scene")
-        ET.SubElement(scene, "ambient").text = "0.4 0.4 0.4 1"
+        # Ambient kept low (sky-tinted) so the sun's shadows stay readable;
+        # the old 0.4 grey + fill lights washed every shadow out.
+        ET.SubElement(scene, "ambient").text = "0.25 0.27 0.3 1"
         ET.SubElement(scene, "background").text = "0.7 0.8 0.9 1"
+        # Procedural sky (sun disc + gradient) — without it cameras see a
+        # flat background colour and half of every outdoor frame is dead.
+        ET.SubElement(scene, "sky")
 
     def _add_extra_lighting(self, world: ET.Element) -> None:
-        """Add extra lighting for forest scenes (ambient and point lights).
+        """Add a weak sky-fill light so shadowed sides don't go black.
+
+        Deliberately far below the sun's intensity: the previous fill
+        (0.6 directional + 0.3 point + 0.4 ambient) out-powered the
+        shadow-casting sun and flattened the whole scene.
 
         Args:
             world: World XML element to add lights to.
         """
-        # Add ambient directional light (softer fill light)
         ambient = ET.SubElement(world, "light", {"name": "ambient", "type": "directional"})
         ET.SubElement(ambient, "cast_shadows").text = "false"
         ET.SubElement(ambient, "pose").text = "0 0 10 0 0 0"
-        ET.SubElement(ambient, "diffuse").text = "0.6 0.6 0.6 1"
-        ET.SubElement(ambient, "specular").text = "0.1 0.1 0.1 1"
-        ET.SubElement(ambient, "direction").text = "0.1 0.1 -0.9"
-
-        # Add point light with proper attenuation structure
-        point = ET.SubElement(world, "light", {"name": "point_light", "type": "point"})
-        ET.SubElement(point, "cast_shadows").text = "false"
-        ET.SubElement(point, "pose").text = "0 0 15 0 0 0"
-        ET.SubElement(point, "diffuse").text = "0.3 0.3 0.3 1"
-        ET.SubElement(point, "specular").text = "0.05 0.05 0.05 1"
-        point_attenuation = ET.SubElement(point, "attenuation")
-        ET.SubElement(point_attenuation, "range").text = "50"
-        ET.SubElement(point_attenuation, "constant").text = "0.5"
-        ET.SubElement(point_attenuation, "linear").text = "0.01"
-        ET.SubElement(point_attenuation, "quadratic").text = "0.001"
+        ET.SubElement(ambient, "diffuse").text = "0.18 0.2 0.24 1"
+        ET.SubElement(ambient, "specular").text = "0.02 0.02 0.02 1"
+        # Opposed to the sun so it only lifts the shadowed sides.
+        ET.SubElement(ambient, "direction").text = "0.5 -0.25 -0.8"
 
     def create_forest_world(
             self,
@@ -663,7 +660,7 @@ class WorldPopulator:
             rig_config: Optional RigConfig. When given, the sensor rig model is
                 (re)generated under models/, included in the world, and the
                 world gains the sensor system plugins + spherical coordinates
-                (docs/SENSOR_RIG_PLAN.md Phase 1).
+                (docs/SENSOR_RIG.md).
             rig_pose: Optional (x, y, z, roll, pitch, yaw) for the rig. Default:
                 terrain centre, 25 m above ground.
 

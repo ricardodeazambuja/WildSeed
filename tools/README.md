@@ -2,7 +2,7 @@
 
 These are **standalone scripts**, not part of the installed `wildseed` package (the library in
 `src/` does not import anything here). They build the CC0 demo asset set, render the 6 demo
-scenarios, and measure realism against the reference screenshots. Most render steps need the
+scenarios, and measure image-level feature metrics on the renders. Most render steps need the
 GPU `wildseed:egl` image — see the repo `README.md` → *Gotchas, best practices & caveats*.
 
 Run from the repo root, inside the container, e.g.:
@@ -18,7 +18,7 @@ docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e PYTHONPATH=/work
 |--------|--------------|
 | `build_assets.py` | Idempotent fetch → normalize → convert of the CC0 Poly Haven asset set → `models/<cat>/<id>/`. Writes `assets/manifest.lock.yaml`. |
 | `fetch_polyhaven.py` | Credential-free download of one Poly Haven asset (`.blend`/glTF). |
-| `normalize_blend.py` | Blender normalizer: pick LOD/variant, recenter/base-z0/scale, **rebuild foliage as `alphaMode=MASK`**, prefer the assembled tree object. The single most important asset-prep step. |
+| `normalize_blend.py` | Blender normalizer: pick LOD/variant, recenter/base-z0/scale, **rebuild foliage as `alphaMode=MASK`**, prefer the assembled tree object. |
 | `import_gltf.py`, `normalize_island_tree.py` | Variants of the normalizer for glTF input and the island-tree special case. |
 | `build_scenarios.py` | Builds + renders all 6 demos end-to-end (terraingen → terrain → ground → generate → render). `FOREST_SCN=name` filters to one scene. |
 | `terrain_scene.py` | Assembles the gz render world + the 3 cameras (`cam_hero`, `cam_oblique`, `cam_top`). |
@@ -28,10 +28,10 @@ docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e PYTHONPATH=/work
 
 | Script | What it does |
 |--------|--------------|
-| `compare.py` | Image-level metric harness: ORB/FAST per-MP, 8×8 coverage, tiling autocorrelation, vs the 3 reference screenshots. Emits `compare.png` + a markdown table. Needs `opencv-python-headless` (in `:egl`). |
+| `compare.py` | Image-level metric harness: ORB/FAST per-MP, 8×8 coverage, tiling autocorrelation. Compares the 6 scenes against local reference images if present (not bundled). Emits `compare.png` + a markdown table. Needs `opencv-python-headless` (in `:egl`). |
 | `quickmetric.py` | Fast single-scene readout (`python3 tools/quickmetric.py savanna_flats`). |
 | `regen_galleries.py` | Rebuilds the 6-panel `scenarios_gallery.png` / `scenarios_overview.png` from frames on disk — use after a single-scene `FOREST_SCN=` build. |
-| `scenario_gallery.py` | Builds + renders N `wildseed scenario --seed` worlds (default 101/107/108) → `scenario_seeds_gallery.png`, the master-seed diversity proof. For rows scenarios the hero cam auto-aims at the plantation centroid (from the `.instances.json` ground truth). `scenario_structured_gallery.png` (seeds 204/207) shows the vineyard + orchard biomes. |
+| `scenario_gallery.py` | Builds + renders N `wildseed scenario --seed` worlds (default 101/107/108) → `scenario_seeds_gallery.png`, the seed-diversity gallery. For rows scenarios the hero cam auto-aims at the plantation centroid (from the `.instances.json` ground truth). `scenario_structured_gallery.png` (seeds 204/207) shows the vineyard + orchard biomes. |
 
 ## Catalog & diagnostics
 

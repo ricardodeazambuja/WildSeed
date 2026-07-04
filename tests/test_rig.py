@@ -1,4 +1,4 @@
-"""Tests for the sensor rig generator (docs/SENSOR_RIG_PLAN.md Phase 1)."""
+"""Tests for the sensor rig generator (docs/SENSOR_RIG.md)."""
 
 from xml.etree import ElementTree as ET
 

@@ -1,4 +1,4 @@
-"""Sensor rig generation (docs/SENSOR_RIG_PLAN.md Phase 1).
+"""Sensor rig generation (docs/SENSOR_RIG.md).
 
 Generates the ``sensor_rig`` Gazebo model — a floating multi-sensor body used to
 test generated worlds and record demos — plus the world-level requirements the

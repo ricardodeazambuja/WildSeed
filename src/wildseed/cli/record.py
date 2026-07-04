@@ -1,4 +1,4 @@
-"""Flight recording CLI subcommand (docs/SENSOR_RIG_PLAN.md Phase 3)."""
+"""Flight recording CLI subcommand (docs/SENSOR_RIG.md)."""
 
 import json
 from pathlib import Path

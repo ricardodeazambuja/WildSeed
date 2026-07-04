@@ -23,9 +23,8 @@ flowchart LR
 | ATMOSPHERE | `wildseed weather` | sun angle/intensity, fog, rain, snow, glare |
 
 Texture randomization is deliberately allowed to be *unrealistic*: randomized-texture
-training (Tobin et al., "Domain Randomization for Transferring Deep Neural Networks
-from Simulation to the Real World", IROS 2017) shows perception models trained across
-wild appearance variation transfer better to the real world.
+training (Tobin et al. 2017) shows perception models trained across wild appearance
+variation transfer better to the real world.
 
 ---
 
@@ -76,7 +75,7 @@ wildseed randomize -c tree,bush --mode wild --seed 42
 ```
 
 This rewrites the base-colour textures embedded in each model's visual `.glb`
-(pure Python, no glTF library) and stamps out sibling model dirs that
+and stamps out sibling model dirs that
 `wildseed generate` picks up as extra species. Guarantees:
 
 - only `baseColorTexture` images are touched — normal/roughness maps untouched;

@@ -1,4 +1,4 @@
-"""Seeded cinematic trajectories for the sensor rig (SENSOR_RIG_PLAN Phase 2).
+"""Seeded cinematic trajectories for the sensor rig (docs/SENSOR_RIG.md).
 
 Synthesis is pure and deterministic: pattern + seed + terrain -> a list of
 timestamped poses written to a trajectory JSON *before* any playback. The seed
@@ -363,7 +363,7 @@ def fly_dynamic(traj: Dict, world: str = "forest_world",
                 kp: float = 4.0, kd: float = 4.0,
                 kp_att: float = 30.0, kd_att: float = 10.0,
                 update_hz: float = 50.0, settle_s: float = 3.0) -> Dict:
-    """Fly the trajectory with FORCES, not teleports (SENSOR_RIG_PLAN Phase 4).
+    """Fly the trajectory with FORCES, not teleports (dynamic mode, docs/SENSOR_RIG.md).
 
     The hand-of-god concept from simple_quad_gazebo rebuilt on gz Harmonic's
     ApplyLinkWrench: a PD loop on position/velocity plus an attitude PD toward
@@ -442,7 +442,7 @@ def fly_dynamic(traj: Dict, world: str = "forest_world",
     f_max = 5.0 * mass * 9.81
     tau_max = 40.0 * inertia
 
-    # ApplyLinkWrench semantics, all MEASURED (see SENSOR_RIG_PLAN findings):
+    # ApplyLinkWrench semantics, all MEASURED (see docs/history/SENSOR_RIG_PLAN.md findings):
     # - persistent wrenches ACCUMULATE as a list; the summed force is applied
     #   exactly, but the server iterates the list every step — 4000 entries
     #   dragged RTF 1.0 -> 0.32, and naive 50 Hz deltas froze whole flights.
