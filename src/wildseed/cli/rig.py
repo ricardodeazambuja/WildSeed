@@ -23,8 +23,14 @@ from wildseed.core.rig import (RigConfig, inject_rig_into_world, rig_topics,
 @click.option("--pose", "pose_str", default=None,
               help="Rig pose for --inject: 'x,y,z[,roll,pitch,yaw]'. "
                    "Default: 0,0,40.")
+@click.option("--shell-only", is_flag=True, default=False,
+              help="With --inject: add the world-shell (sensor system "
+                   "plugins, GPS georeference, semantic labels) but NOT the "
+                   "rig include/model — for worlds that host an externally "
+                   "spawned robot.")
 @click.pass_context
-def rig(ctx, config_path, models_dir, name, inject_world, pose_str):
+def rig(ctx, config_path, models_dir, name, inject_world, pose_str,
+        shell_only):
     """Generate the flying sensor-rig model (test instrument + camera dolly).
 
     Full suite by default: stereo cams, wide-angle, RGB-D, instance
@@ -49,9 +55,15 @@ def rig(ctx, config_path, models_dir, name, inject_world, pose_str):
     if name:
         config = config.model_copy(update={"name": name})
 
+    if shell_only and not inject_world:
+        raise click.ClickException("--shell-only requires --inject <world>")
+
     if inject_world:
         rig_pose = None
         if pose_str:
+            if shell_only:
+                raise click.ClickException("--pose is meaningless with "
+                                           "--shell-only (no rig include)")
             try:
                 parts = [float(v) for v in pose_str.split(",")]
             except ValueError:
@@ -63,8 +75,9 @@ def rig(ctx, config_path, models_dir, name, inject_world, pose_str):
                 raise click.ClickException("--pose needs 3 or 6 numbers")
             rig_pose = tuple(parts)
         inject_rig_into_world(Path(inject_world), config, Path(models_dir),
-                              rig_pose=rig_pose)
-        console.print(f"[green]rig injected[/green] into "
+                              rig_pose=rig_pose, shell_only=shell_only)
+        what = "world-shell injected" if shell_only else "rig injected"
+        console.print(f"[green]{what}[/green] into "
                       f"[cyan]{inject_world}[/cyan] (idempotent; labels added "
                       "to unlabeled includes)")
         return

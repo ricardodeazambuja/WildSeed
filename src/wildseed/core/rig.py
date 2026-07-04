@@ -355,7 +355,8 @@ def add_rig_include(world: ET.Element, config: RigConfig,
 
 def inject_rig_into_world(world_path: Path, config: RigConfig,
                           models_path: Path,
-                          rig_pose: Optional[Tuple[float, ...]] = None) -> Path:
+                          rig_pose: Optional[Tuple[float, ...]] = None,
+                          shell_only: bool = False) -> Path:
     """Retrofit an EXISTING world file with the rig + everything it needs.
 
     Idempotent: adds the sensor system plugins, spherical coordinates,
@@ -364,6 +365,10 @@ def inject_rig_into_world(world_path: Path, config: RigConfig,
     (re)generated under ``models_path``. Default pose: above the first
     include's position or the origin, 25 m up — pass ``rig_pose`` for
     anything camera-worthy.
+
+    ``shell_only=True`` injects the world-shell (system plugins, spherical
+    coordinates, labels) but neither the rig include nor the rig model —
+    for worlds that host an externally spawned robot instead of the rig.
     """
     world_path = Path(world_path)
     tree = ET.parse(world_path)
@@ -373,16 +378,17 @@ def inject_rig_into_world(world_path: Path, config: RigConfig,
         raise ValueError(f"no <world> element in {world_path}")
 
     add_world_sensor_requirements(world)
-    write_rig_model(config, models_path)
+    if not shell_only:
+        write_rig_model(config, models_path)
 
-    for inc in world.findall("include"):
-        name = inc.findtext("name") or ""
-        if name == config.name:
-            break   # rig already present; labels below stay idempotent too
-    else:
-        if rig_pose is None:
-            rig_pose = (0.0, 0.0, 40.0, 0.0, 0.0, 0.0)
-        add_rig_include(world, config, tuple(rig_pose))
+        for inc in world.findall("include"):
+            name = inc.findtext("name") or ""
+            if name == config.name:
+                break   # rig already present; labels below stay idempotent
+        else:
+            if rig_pose is None:
+                rig_pose = (0.0, 0.0, 40.0, 0.0, 0.0, 0.0)
+            add_rig_include(world, config, tuple(rig_pose))
 
     for inc in world.findall("include"):
         uri = inc.findtext("uri") or ""

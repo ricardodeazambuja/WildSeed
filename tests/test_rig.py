@@ -132,3 +132,37 @@ def test_inject_rig_into_world_idempotent(tmp_path):
         assert len(lbls) == 1 and lbls[0].findtext("label") == label
     # generated rig model exists
     assert (tmp_path / "models" / "sensor_rig" / "model.sdf").exists()
+
+
+def test_inject_shell_only_adds_no_rig(tmp_path):
+    from wildseed.core.rig import inject_rig_into_world
+
+    world_file = tmp_path / "w.world"
+    world_file.write_text("""<?xml version="1.0"?>
+<sdf version="1.8"><world name="w">
+  <include><uri>model://ground</uri><name>terrain</name></include>
+  <include><uri>model://tree/fir</uri><name>tree_0</name></include>
+</world></sdf>""")
+
+    inject_rig_into_world(world_file, RigConfig(), tmp_path / "models",
+                          shell_only=True)
+    inject_rig_into_world(world_file, RigConfig(), tmp_path / "models",
+                          shell_only=True)  # idempotent
+
+    root = ET.parse(world_file).getroot()
+    world = root.find("world")
+    # no rig include, no rig model on disk
+    assert all((i.findtext("name") or "") != "sensor_rig"
+               for i in world.findall("include"))
+    assert not (tmp_path / "models" / "sensor_rig").exists()
+    # but the full shell is there, exactly once
+    plugins = [p.get("name") for p in world.findall("plugin")]
+    for system in ("Physics", "Sensors", "Imu", "NavSat", "AirPressure",
+                   "Magnetometer"):
+        assert plugins.count(f"gz::sim::systems::{system}") == 1
+    assert len(world.findall("spherical_coordinates")) == 1
+    # labels still applied
+    tree_inc = next(i for i in world.findall("include")
+                    if i.findtext("name") == "tree_0")
+    assert any(p.get("name") == "gz::sim::systems::Label"
+               for p in tree_inc.findall("plugin"))

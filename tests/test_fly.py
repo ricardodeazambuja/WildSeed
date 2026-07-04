@@ -115,3 +115,39 @@ def test_interpolate_pose_endpoints_and_midpoint(terrain):
 def test_kinematic_mode_recorded(terrain):
     traj = synthesize("orbit", seed=0, terrain=terrain)
     assert traj["mode"] == "kinematic"   # datasets must know IMU is invalid
+
+
+def test_height_cli_json(tmp_path):
+    """`wildseed height --json` reports the sampled ground z + bounds."""
+    from click.testing import CliRunner
+    from stl import mesh as stl_mesh
+
+    from wildseed.cli.main import main as cli_main
+
+    mesh_dir = tmp_path / "models" / "ground" / "mesh"
+    mesh_dir.mkdir(parents=True)
+    # flat 20x20 m plate at z=3.25 under base/models/ground/mesh/terrain.stl
+    n = 5
+    xs = np.linspace(-10, 10, n)
+    gx, gy = np.meshgrid(xs, xs)
+    gz = np.full_like(gx, 3.25)
+    tris = []
+    for i in range(n - 1):
+        for j in range(n - 1):
+            v00 = (gx[i, j], gy[i, j], gz[i, j])
+            v10 = (gx[i, j + 1], gy[i, j + 1], gz[i, j + 1])
+            v01 = (gx[i + 1, j], gy[i + 1, j], gz[i + 1, j])
+            v11 = (gx[i + 1, j + 1], gy[i + 1, j + 1], gz[i + 1, j + 1])
+            tris.append([v00, v10, v11])
+            tris.append([v00, v11, v01])
+    data = np.zeros(len(tris), dtype=stl_mesh.Mesh.dtype)
+    data["vectors"] = np.array(tris)
+    stl_mesh.Mesh(data).save(str(mesh_dir / "terrain.stl"))
+
+    result = CliRunner().invoke(
+        cli_main, ["height", "-x", "1.5", "-y", "-2.0", "--json",
+                   "--base-path", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output.strip().splitlines()[-1])
+    assert abs(payload["z"] - 3.25) < 1e-3
+    assert payload["bounds"]["x_max"] == 10.0

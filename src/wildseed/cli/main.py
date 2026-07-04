@@ -69,6 +69,7 @@ from wildseed.cli.weather import weather
 from wildseed.cli.assetgen import assetgen
 from wildseed.cli.rig import rig
 from wildseed.cli.fly import fly
+from wildseed.cli.height import height
 from wildseed.cli.record import record
 
 main.add_command(terrain)
@@ -83,6 +84,7 @@ main.add_command(weather)
 main.add_command(assetgen)
 main.add_command(rig)
 main.add_command(fly)
+main.add_command(height)
 main.add_command(record)
 
 

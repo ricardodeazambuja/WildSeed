@@ -48,6 +48,10 @@ on/off, rates, resolutions, lidar channels, stereo baseline, mount poses.
   build a world with the rig included (default pose: terrain centre, 25 m AGL)
 - `wildseed rig --inject worlds/<w>.world --config cfg.yaml` — add the rig to an
   existing world
+- `wildseed rig --inject worlds/<w>.world --shell-only` — add only the
+  world-shell (sensor system plugins, `<spherical_coordinates>`, semantic
+  labels) with **no** rig include/model — for worlds that will host an
+  externally spawned robot (e.g. a ROS 2 UGV) instead of the flying rig
 
 Bundled configs: `configs/rig_cinematic.yaml` (720p main camera only, for
 videos), `configs/rig_showcase.yaml` (1080p, same idea),
