@@ -121,5 +121,79 @@ Findings:
   GROUND between objects is still ambiguous. Objects fix landmark starvation; they do not fix
   ground ambiguity. → motivates pairing (c) with (d) or a ground-texture fix.
 
-LIDAR (V3): the 880-instance clutter scan gave `ring_roughness_m` 8.96 vs a flat-bare
-reference (below) — objects produce large adjacent-beam range jumps the LIO can register.
+LIDAR (V3): steered objects raise `ring_roughness_m` above the flat-bare reference (3.23) —
+3.73 at 175 objects, 8.96 at 880 — the near returns off objects give the LIO registrable
+along-track structure. finite_frac stays low (~0.1) because at 2 m over open ground most of
+the 16 beams point above the ground into the sky.
+
+---
+
+## Option (d) — geometric ground relief (measured)
+
+One surface, not N objects: put relief into the ground MESH itself. Prototyped via the
+existing `terraingen` detail knobs (d1 — mesh displacement) at max mesh resolution
+(`--size 512 --pixel 0.6` = 307 m extent, 0.6 m/px), smooth uniform grassland texture kept so
+the test isolates **geometry** (same failure bed + failure pose as (c)). One static mesh → no
+per-instance cost.
+
+| config | relief | mean slope | VIO verdict | inliers/pair | ratio_reject | RTF min | load | LIDAR rough |
+|---|---|---|---|---|---|---|---|---|
+| P1 baseline (flat) | 7.2 m* | 1.9° | ALIASING RISK | 20 | 0.98 | ~1.0 | — | 3.23 |
+| (d) gentle relief | 5.8 m | 8.8° | ALIASING RISK | 38 | 0.96 | **0.998** | 3.2 s | 4.46 |
+| (d) rough relief | 7.0 m | 15.2° | **MARGINAL** | **91** | 0.92 | ~1.0† | 3 s | — |
+
+\* the `flat` preset already has ~7 m of very-gentle relief (mean slope 1.9°), which is why
+bare-flat LIDAR roughness is 3.23 not 0. † rough-relief RTF inferred from gentle relief
+(0.998): identical 512² single mesh, bare — same render/physics cost.
+
+Findings:
+- **Relief runs at full real-time (RTF 0.998, load 3.2 s) as ONE mesh** — no instance count,
+  no ogre2 instance ceiling, no long load. This is the RTF-safest lever, exactly as predicted.
+- **VIO gain is coupled to relief amplitude, and amplitude is capped by TRAVERSABILITY.**
+  Gentle relief a ground robot can actually drive (mean slope 8.8°) only reaches 38 inliers
+  (still ALIASING RISK). To reach MARGINAL (91 inliers) needs mean slope 15.2° / p95 29.6° —
+  borderline drivable; a `terraingen --max-slope 20` cap (scenario default) would rescale it
+  back down and give the gain back up. So on **must-stay-flat** terrain, mesh relief alone
+  cannot fix VIO.
+- **Root cause = mesh Nyquist.** The pure-Python mesh at 0.6 m/px resolves only ≳1.2 m relief,
+  so to make VIO features it must use large-amplitude, few-metre undulation (→ slope) rather
+  than the cm–dm surface roughness (clods, ruts, tufts) that would add camera texture + LIO
+  range variation WITHOUT raising the macro slope. **This is the case for d2 (gz `<heightmap>`
+  / Terra):** a hi-res height field GPU-tessellated + LOD'd carries cm relief on otherwise-flat
+  ground — decoupling VIO/LIO texture from traversability — at one-mesh cost. Not yet built
+  (bigger pipeline change); d1 establishes the relief lever and its mesh-resolution ceiling.
+- LIO: gentle relief lifts roughness 3.23 → 4.46 (+38%) — relief helps the lidar even where it
+  under-delivers for the camera.
+
+---
+
+## Frontier & recommendation
+
+All at the P1 failure pose (flat, uniform grassland, 2 m, fast driving; baseline = 20
+inliers, ALIASING RISK). Everything below holds **RTF ≥ 0.998** — the binding constraint is
+respected by both levers when sized right.
+
+| lever | best VIO | verdict | RTF | LIO | drivable? | cost |
+|---|---|---|---|---|---|---|
+| (c) steered objects, ~175 | 57 | MARGINAL | 1.0 | + | yes (flat path) | asset + placement; RTF cost climbs fast past ~200 in-view |
+| (d) mesh relief, gentle | 38 | ALIASING RISK | 1.0 | ++ | yes | none (one mesh) |
+| (d) mesh relief, rough | 91 | MARGINAL | 1.0 | ++ | borderline (15° mean) | traversability |
+
+- **They are complementary, not competing.** (c) fixes **landmark starvation** (distinct
+  objects beside a flat, drivable path) — the strongest lever when the ground must stay flat.
+  (d) fixes it with **surface geometry** at zero instance cost and the best LIO gain — the
+  strongest lever when the terrain is *allowed* to be rough. Ship BOTH as switchable knobs
+  (plumbing already exists: `corridor_map.py` + `--density-maps` for (c); `terraingen`
+  detail/amplitude flags for (d)).
+- **Neither reaches GOOD alone** because the uniform ground *texture* between features stays
+  ambiguous (`ratio_reject` stuck ~0.92–0.96). The third lever is the **ground material**: P1
+  showed *patchy* desert ground (composited gravel/pebble) scores GOOD even bare. So the full
+  recipe for a VIO/LIO-friendly ground-robot world is **patchy ground texture + a modest
+  steered-object budget (c) and/or drivable relief (d)** — texture kills ground aliasing,
+  objects/relief supply landmarks and LIO structure.
+- **Instance count is the RTF enemy, confirmed**: (c) saturates its VIO gain at ~175 objects;
+  everything above is pure RTF cost (and grass foliage is negative-value). (d) sidesteps the
+  count axis entirely — its only ceiling is mesh resolution (→ d2/Terra for cm relief).
+- **Next step for the strongest single lever:** d2 (Terra `<heightmap>`) to carry cm–dm surface
+  roughness on flat, drivable ground — the one thing the current mesh path (Nyquist-limited)
+  and the object path (RTF-limited) both cannot deliver.
