@@ -294,3 +294,39 @@ python3 -m wildseed.cli.main generate --rig --rig-pose 0,0,2 \
 ```
 The `--rig` world drives with `wildseed fly` + `wildseed record`; drop `--rig`/`--rig-pose` for a
 clean `vio_bench` render. This recipe + the bare-uniform baseline are the two worlds for Phase C.
+
+---
+
+## Phase C — end-to-end VIO/LIO validation (DONE)
+
+The vio_bench inlier count and lidar_spread roughness are *proxies*. Phase C turns them into real
+trajectory-drift (ATE) numbers, to confirm they predict odometry behaviour. Kinematic ground-robot
+datasets (`wildseed record --dataset`, flythrough @ 2 m AGL, 5 m/s) recorded on the **recipe** world
+and the **bare-uniform failure baseline**, two trajectory seeds each. Reference estimator
+(`tools/vio_validate.py`, self-contained, no ROS): monocular ORB + essential-matrix VO with GT
+per-step scale + point-to-point ICP LIO, Umeyama-aligned to the TUM ground truth.
+
+| run | VIO seg drift | VIO ATE | VIO fails | LIO seg drift | LIO ATE | LIO fails |
+|---|---|---|---|---|---|---|
+| recipe (seed 7) | 6.85 | 59.8 | 5/422 | 10.38 | 74.3 | **0**/281 |
+| baseline (seed 7) | 7.48 | 89.0 | 13/419 | 12.33 | 110.1 | 7/280 |
+| recipe (seed 11) | 6.57 | 53.2 | 9/401 | 10.43 | 70.0 | **0**/268 |
+| baseline (seed 11) | 8.25 | 91.8 | 18/401 | 12.33 | 103.3 | 8/267 |
+
+*(seg drift = mean local drift over ~25 m windows, the open-loop metric; ATE compounds over the
+full ~600 m path; fails = frame-pairs where the estimator lost track and dead-reckoned.)*
+
+**The recipe wins on every metric, both sensors, both seeds:**
+- VIO ATE −37%, LIO ATE −32% (vs baseline, averaged over seeds).
+- VIO tracking failures roughly halved (5/9 vs 13/18).
+- **LIO never loses ICP lock (0/0) where the baseline's flat ground does 7-8× per run** — the
+  starkest single signal, and exactly what lidar_spread's `ring_roughness` predicted (flat ground →
+  no along-track geometry → ICP slides).
+- LIO seg drift is remarkably reproducible (10.4 recipe vs 12.3 baseline, both seeds).
+
+**Verdict: the proxies are validated** — the structure+texture recipe the vio_bench/lidar_spread
+sweeps selected produces measurably, consistently lower real odometry drift than the failure
+baseline. **Caveat:** the reference estimator is deliberately crude (frame-to-frame, no IMU fusion,
+no backend / loop closure), so *absolute* drift is large and effect sizes are modest; a production
+IMU-fused stack (the ROS2 path) would sharpen the separation. Phase C establishes the **sign and
+consistency** — which is what a first validation must do — not a production ATE budget.
