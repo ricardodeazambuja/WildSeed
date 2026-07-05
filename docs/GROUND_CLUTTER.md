@@ -65,11 +65,61 @@ terrain is exactly where scatter and relief must prove their worth (no horizon t
 
 ---
 
-## P2 — RTF-under-load harness (in progress)
+## P2 — RTF-under-load harness (DONE)
 
-`tools/vio_bench.py` renders one-shot (no RTF signal). P2 adds a real-time run: the rig
-(camera 10 Hz + gpu_lidar 16 ch/360/10 Hz, from `core/rig.py`) in a world with clutter/relief
-+ physics stepping, logging gz RTF. Output: RTF vs scene complexity — the cost gauge for
-options (c)/(d).
+`tools/vio_bench.py` renders one-shot (no RTF signal). `tools/rtf_bench.py` adds a real-time
+run: it launches a real `gz sim -s -r` server on a rig world (`generate --rig`), attaches
+subscribers to the camera + lidar topics (a stand-in VIO/LIO consumer, so the sensors are
+genuinely on the render path), waits until the sim clock **actually advances**, then samples
+`real_time_factor` off `/world/<world>/stats`.
 
-_(numbers to follow)_
+**Harness gotcha (found + fixed):** `/stats` publishes a **frozen** clock while the world is
+still loading (hundreds of instance meshes take tens of seconds — 26 s for 880 instances). A
+fixed-settle measurement catches pure load time and reports a bogus RTF ~0 with
+`sim_advanced_s == 0`. The harness now waits for the clock to advance (up to `--load-timeout`,
+default 240 s) before the window opens, and reports `load_wait_s` + a `stalled` flag.
+
+Validation: **bare rig world = RTF 0.999** (median 1.0) — sensors are cheap over empty ground.
+
+`tools/lidar_spread.py` is the V3 gate (LIO axis the camera benchmark can't see): launches the
+rig world, grabs gpu_lidar scans, reports `ring_roughness_m` (mean std of Δrange between
+adjacent azimuth beams — ~0 over flat ground, rises with clutter/relief), `range_std_m`,
+`near_frac`, `finite_frac`.
+
+---
+
+## Option (c) — density-map-steered scatter (measured)
+
+Plumbing: `tools/corridor_map.py` paints a driving corridor (white band at the drive line
+y=0, `--soft` Gaussian taper) → fed to `generate --density-maps` → the object budget lands in
+the band the vehicle drives (high LOCAL density, low TOTAL count). Ground kept flat + uniform
+grassland (the P1 failure bed); rig at 2 m; benchmark at the P1 failure pose
+(pitch 0.35, step 2.0, yaw ±10°). Same seed used for the no-rig (VIO) and rig (RTF/LIDAR) worlds.
+
+**Frontier — VIO gain saturates early; extra instances only cost RTF:**
+
+| config | instances | VIO verdict | inliers/pair | ratio_reject | RTF median | RTF min |
+|---|---|---|---|---|---|---|
+| P1 baseline (bare) | 0 | ALIASING RISK | 20 | 0.98 | ~1.0 | — |
+| **c_light** (tree15/bush90/rock70) | **175** | MARGINAL | **57** | 0.92 | **1.00** | **0.998** |
+| c_med (tree25/bush180/rock120) | 325 | MARGINAL | 56 | 0.93 | 0.75 | 0.43 |
+| c_clutter (+400 grass) | 880 | MARGINAL | 51 | 0.96 | 0.19 | 0.11 |
+
+Findings:
+- **~175 steered distinct objects lift VIO from ALIASING RISK (20 inliers) to MARGINAL
+  (57 inliers, 2.85×) at full real-time (RTF 1.0).** This is the option-(c) operating point.
+- **The VIO gain SATURATES**: 325 and 880 instances give the *same* ~56 inliers but tank RTF
+  (0.75 → 0.19). Instance count is pure RTF cost past the saturation point — confirming §2.4
+  (distinct objects, not object *quantity*, carry VIO) and the RTF binding constraint.
+- **Grass is a trap**: the 400 alpha-textured grass instances in `c_clutter` add the most RTF
+  cost *and slightly worsen* VIO (ratio_reject 0.92 → 0.96 — foliage self-similarity adds
+  ambiguity). Steer distinct landmarks (rock/bush/tree), not carpet foliage.
+- **c3 "drop collision" lever is moot here:** placed clutter models are already `<static>`, so
+  RTF cost is render/instance-count-bound, not dynamics/collision — the lever to pull is
+  in-view instance count (which corridor-steering already minimizes), not collision.
+- Ceiling: even c_light only reaches MARGINAL (`ratio_reject` stays 0.92) — the smooth uniform
+  GROUND between objects is still ambiguous. Objects fix landmark starvation; they do not fix
+  ground ambiguity. → motivates pairing (c) with (d) or a ground-texture fix.
+
+LIDAR (V3): the 880-instance clutter scan gave `ring_roughness_m` 8.96 vs a flat-bare
+reference (below) — objects produce large adjacent-beam range jumps the LIO can register.

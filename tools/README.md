@@ -47,6 +47,12 @@ See **`docs/VIO_BENCH.md`** for the full method + how to read the numbers.
 | `vio_exp.py` | Per-frame **ground-region** feature density (FAST/MP, ORB/MP, coverage, tiling autocorrelation, high-frequency energy) for A/B ground materials at the drone + ground-robot poses. |
 | `vio_seq.py` | Temporal **KLT feature-track-length** over a forward-motion sequence (how many frames a feature survives). NB: KLT is a *local* tracker → long tracks do **not** rule out aliasing; use `vio_bench.py` for that. |
 | `vio_clutter_exp.py` | Worked example: holds terrain+ground constant, varies **placement density** (bare→trees→full clutter), benchmarks each. Shows landmark density — not ground texture — drives confident matches (inliers/pair 200→604). |
+| **`rtf_bench.py`** | **RTF-under-load harness** — the COST gauge. Launches a real `gz sim -s -r` server on a rig world, attaches cam/lidar consumers, waits for the sim clock to advance (skips load stall), and samples `real_time_factor` off `/stats`. Reports `window_rtf` / `rtf_min` / `load_wait_s` / `stalled`. Keep the operating point where `rtf_min` ≥ ~0.5. |
+| **`lidar_spread.py`** | **LIO axis (V3)** the camera benchmark can't see: gpu_lidar range **roughness**. `ring_roughness_m` = mean std of Δrange between adjacent azimuth beams (~0 over flat ground, rises with clutter/relief), plus `range_std_m` / `near_frac` / `finite_frac`. |
+| `corridor_map.py` | **Steered-scatter (c) plumbing**: paints a driving-corridor density map (white band at the drive line, `--soft` Gaussian taper) for `generate --density-maps` → the object budget lands where the vehicle drives (high local density, low total count). |
+
+See **`docs/GROUND_CLUTTER.md`** for the ground-clutter/relief study (P1 failure baseline,
+RTF harness, options (c) steered scatter + (d) geometric relief, on the feature-gain/RTF-cost frontier).
 
 `terrain_scene.py` gained two gated hooks for these: `VIO_CAMS=1` adds the drone/ground
 cams; `VIO_TRAJ="x,y,z,pitch,yaw;…"` places one `vio_cam_<i>` per pose so a whole
