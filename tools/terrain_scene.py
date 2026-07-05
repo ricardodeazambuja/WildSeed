@@ -172,6 +172,32 @@ if hero_rocks and "HERO_EX" not in os.environ:
 parts.append(cam("cam_oblique", cx, cy, cz, pitch, yaw))
 parts.append(cam("cam_top", 0.0, 0.0, tz, 1.5708, 0.0, fov=1.2, w=900, h=900))
 parts.append(cam("cam_hero", hx, hy, hz, hpitch, hyaw, fov=1.25, w=1280, h=720))
+
+# VIO_CAMS=1: two cameras at the REAL sensor-rig optics (640x480, 57 deg FOV,
+# core/rig.py) at the actual operating poses (cli/fly.py: --agl 12 default, gentle
+# ~20 deg down-pitch). vio_drone = 12 m AGL forward-look; vio_ground = 2 m ground-
+# robot eye. These isolate GROUND texture crispness at the GSD VIO actually resolves
+# -- the axis the oblique/720p gallery-cam harness cannot see. Ground-following z.
+# VIO_TRAJ="x,y,z,pitch,yaw;x,y,z,pitch,yaw;..." places one 'vio_cam_<i>' at each pose,
+# all in a SINGLE world, so tools/vio_bench.py renders a whole benchmark trajectory in one
+# gz session (one startup, not N). Real rig optics 640x480/57 deg unless VIO_FOV set.
+# Takes precedence over VIO_CAMS.
+_traj = os.environ.get("VIO_TRAJ")
+if _traj:
+    _fov = float(os.environ.get("VIO_FOV", "1.0"))
+    _poses = [p for p in _traj.split(";") if p.strip()]
+    for _i, _p in enumerate(_poses):
+        _x, _y, _z, _pit, _ya = (float(t) for t in _p.split(","))
+        parts.append(cam(f"vio_cam_{_i}", _x, _y, _z, _pit, _ya, fov=_fov, w=640, h=480))
+    print(f"VIO_TRAJ: {len(_poses)} cams (fov={_fov} 640x480)")
+elif os.environ.get("VIO_CAMS") == "1":
+    # VIO_DX sweeps the drone forward (+X, its look direction) to render a motion
+    # sequence for temporal feature-track-length (KLT) measurement.
+    vx, vy = -0.30 * ext + float(os.environ.get("VIO_DX", "0")), 0.0
+    gz_ = _terrain_z(vx, vy)
+    parts.append(cam("vio_drone",  vx, vy, gz_ + 12.0, 0.35, 0.0, fov=1.0, w=640, h=480))
+    parts.append(cam("vio_ground", vx, vy, gz_ + 2.0,  0.20, 0.0, fov=1.0, w=640, h=480))
+    print(f"VIO cams: drone@{gz_+12:.1f}m ground@{gz_+2:.1f}m pitch=0.35/0.20 640x480 fov1.0")
 parts.append("  </world>\n</sdf>\n")
 open(OUT, "w").write("".join(parts))
 print(f"wrote {OUT}  oblique cam=({cx:.0f},{cy:.0f},{cz:.0f}) pitch={pitch:.2f} yaw={yaw:.2f}")

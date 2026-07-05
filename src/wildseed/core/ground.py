@@ -300,9 +300,12 @@ class GroundCompositor:
             alb = self._hsv_jitter_rgb(alb, rng, jitter)
         self._write_maps(self._to8(alb), self._to8(nor) if nor is not None else None,
                          self._to8(rgh) if rgh is not None else None)
-        self.set_uv(getattr(cfg, "uniform_tile", 8.0))
+        warp = float(getattr(cfg, "tile_warp", 0.0) or 0.0)
+        self.set_uv(getattr(cfg, "uniform_tile", 8.0), warp_amp=warp,
+                    seed=int(getattr(cfg, "seed", 0)))
         self.write_sdf(has_normal=nor is not None, has_rough=rgh is not None)
-        logger.info(f"ground: uniform base={base} tile=x{getattr(cfg, 'uniform_tile', 8.0)} jitter={jitter}")
+        logger.info(f"ground: uniform base={base} tile=x{getattr(cfg, 'uniform_tile', 8.0)} "
+                    f"warp={warp} jitter={jitter}")
         return {"mode": "uniform", "base": base, "hsv_jitter": jitter}
 
     def _generate_wild(self) -> dict:
@@ -461,8 +464,16 @@ class GroundCompositor:
         if rgh is not None:
             Image.fromarray(rgh).save(self.texdir / "ground_Roughness.png")
 
-    def set_uv(self, scale: Optional[float]):
-        """Rewrite terrain.obj UVs. scale=None -> 0..1 (baked); else x scale (tiled)."""
+    def set_uv(self, scale: Optional[float], warp_amp: float = 0.0, seed: int = 0):
+        """Rewrite terrain.obj UVs. scale=None -> 0..1 (baked); else x scale (tiled).
+
+        warp_amp>0 (tiled mode only): add a smooth low-frequency displacement (in TILE
+        units) to the per-vertex UVs, sampled from a coarse fractal grid. This bends the
+        otherwise-perfectly-periodic tiling grid into a wavy, non-periodic one so the
+        tiling-autocorrelation cross collapses (VIO de-aliasing) -- the draw-time analog
+        of the patchy _tiled warp. Wobble period ~40 m so the warp itself adds no new
+        short period (a fine warp folds the texture into visible swirls).
+        """
         verts, lines = [], []
         with open(self.obj) as f:
             for line in f:
@@ -471,10 +482,24 @@ class GroundCompositor:
                     p = line.split()
                     verts.append((float(p[1]), float(p[2])))
         vx = np.array([v[0] for v in verts]); vy = np.array([v[1] for v in verts])
-        u = (vx - vx.min()) / (vx.max() - vx.min())
-        v = (vy - vy.min()) / (vy.max() - vy.min())
+        nx = (vx - vx.min()) / (vx.max() - vx.min())
+        ny = (vy - vy.min()) / (vy.max() - vy.min())
+        u, v = nx.copy(), ny.copy()
         if scale is not None:
             u, v = u * scale, v * scale
+        if warp_amp > 0 and scale is not None:
+            ex, ey = float(vx.max() - vx.min()), float(vy.max() - vy.min())
+            extent = max((ex + ey) / 2.0, 1e-6)
+            warp_period_m = max(40.0, 6.0 * extent / float(scale))  # >= ~6 tiles
+            grid = 96
+            warp_px = max(grid * warp_period_m / extent, 4.0)
+            rng = np.random.default_rng(int(seed))
+            du = (self._fractal_noise(grid, warp_px, rng, octaves=3) - 0.5) * 2.0 * warp_amp
+            dv = (self._fractal_noise(grid, warp_px, rng, octaves=3) - 0.5) * 2.0 * warp_amp
+            ix = np.clip((nx * (grid - 1)).astype(int), 0, grid - 1)
+            iy = np.clip((ny * (grid - 1)).astype(int), 0, grid - 1)
+            u = u + du[iy, ix]
+            v = v + dv[iy, ix]
         out, vi = [], 0
         for line in lines:
             if line.startswith("vt "):

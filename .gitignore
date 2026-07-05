@@ -72,3 +72,6 @@ worlds/scenario_*
 # Upstream Forest3D reference screenshots (renders of commercial assets; local-only
 # baselines for tools/compare.py — not redistributed)
 Screenshot from 2026-*.png
+
+# Session scratch/working files (not part of the repo)
+scratchpad/

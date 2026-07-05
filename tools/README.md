@@ -33,6 +33,25 @@ docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e PYTHONPATH=/work
 | `regen_galleries.py` | Rebuilds the 6-panel `scenarios_gallery.png` / `scenarios_overview.png` from frames on disk — use after a single-scene `FOREST_SCN=` build. |
 | `scenario_gallery.py` | Builds + renders N `wildseed scenario --seed` worlds (default 101/107/108) → `scenario_seeds_gallery.png`, the seed-diversity gallery. For rows scenarios the hero cam auto-aims at the plantation centroid (from the `.instances.json` ground truth). `scenario_structured_gallery.png` (seeds 204/207) shows the vineyard + orchard biomes. |
 
+### VIO benchmarking (does a generated world actually support VIO?)
+
+Renders the **real sensor-rig camera** (640×480, 57° FOV; `core/rig.py`) at the actual
+operating poses (`cli/fly.py`: 12 m drone, 2 m ground-robot) — the axis the gallery cams
+above cannot see (they are oblique 720p framing shots). The three scripts escalate from
+"are there features" to "are the features *usable*". All run in `wildseed:egl` (GPU).
+See **`docs/VIO_BENCH.md`** for the full method + how to read the numbers.
+
+| Script | What it does |
+|--------|--------------|
+| **`vio_bench.py`** | **The VIO benchmark.** Measures descriptor **data-association quality under motion** — the metric that predicts VIO failure (perceptual **aliasing**: repeated/indistinct features that break matching), which feature *count* misses. Renders a canonical translation+yaw trajectory over the current `models/` world and reports Lowe-ratio rejection, essential-matrix **inlier ratio**, inliers/pair, self-ambiguity + a GOOD/ALIASING-RISK verdict. `python3 tools/vio_bench.py --tag myworld` (or `--ground-modes patchy,uniform_t1` to A/B). |
+| `vio_exp.py` | Per-frame **ground-region** feature density (FAST/MP, ORB/MP, coverage, tiling autocorrelation, high-frequency energy) for A/B ground materials at the drone + ground-robot poses. |
+| `vio_seq.py` | Temporal **KLT feature-track-length** over a forward-motion sequence (how many frames a feature survives). NB: KLT is a *local* tracker → long tracks do **not** rule out aliasing; use `vio_bench.py` for that. |
+| `vio_clutter_exp.py` | Worked example: holds terrain+ground constant, varies **placement density** (bare→trees→full clutter), benchmarks each. Shows landmark density — not ground texture — drives confident matches (inliers/pair 200→604). |
+
+`terrain_scene.py` gained two gated hooks for these: `VIO_CAMS=1` adds the drone/ground
+cams; `VIO_TRAJ="x,y,z,pitch,yaw;…"` places one `vio_cam_<i>` per pose so a whole
+trajectory renders in a single gz session.
+
 ## Catalog & diagnostics
 
 | Script | What it does |
