@@ -103,3 +103,82 @@ def test_generate_cli_exposes_density_maps():
     from wildseed.cli.generate import generate
     names = {p.name for p in generate.params}
     assert "density_maps" in names
+
+
+# --------------------------------------------------------------- corridor map --
+
+def test_corridor_map_white_band_at_y0():
+    """A hard corridor is white exactly where |world_y - y0| <= half_width."""
+    from wildseed.core.density_maps import build_corridor_map
+    extent, hw = 80.0, 8.0
+    img = build_corridor_map(extent, hw, y0=0.0, res=256)
+    # centre row is +/- extent/2 mapped; row for world_y=0 is the middle.
+    mid = img.shape[0] // 2
+    assert img[mid].min() == 255           # centre band fully white
+    assert img[0].max() == 0 and img[-1].max() == 0  # edges (|y|=40) black
+    # white fraction ~ (2*hw)/extent = 16/80 = 0.20
+    frac = (img > 12).mean()
+    assert abs(frac - (2 * hw / extent)) < 0.02
+
+
+def test_corridor_map_offset_y0():
+    """Shifting y0 north moves the band toward row 0 (the +Y edge)."""
+    from wildseed.core.density_maps import build_corridor_map
+    img = build_corridor_map(80.0, 6.0, y0=20.0, res=256)
+    rows = np.where(img.max(axis=1) == 255)[0]
+    # y0=+20 of +/-40 extent -> upper quarter (rows well above the middle).
+    assert rows.mean() < img.shape[0] * 0.4
+
+
+def test_corridor_map_soft_tapers():
+    """--soft gives a smooth peak-at-centre profile, not a hard 0/255 edge."""
+    from wildseed.core.density_maps import build_corridor_map
+    hard = build_corridor_map(80.0, 8.0, res=128, soft=False)
+    soft = build_corridor_map(80.0, 8.0, res=128, soft=True)
+    col_soft = soft[:, 0].astype(float)
+    mid = 64
+    assert col_soft[mid] >= 250                       # near-peak white at centre
+    assert col_soft[mid] == col_soft.max()            # centre is the maximum
+    assert col_soft[mid - 12] < col_soft[mid] - 30    # graded shoulder, clearly lower
+    assert 0 < col_soft[mid - 12] < 255               # (a hard edge would be 0 or 255)
+    assert set(np.unique(hard[:, 0])) <= {0, 255}     # hard is strictly binary
+
+
+def test_corridor_map_deterministic_no_seed():
+    """Shape is fully determined by geometry — no RNG."""
+    from wildseed.core.density_maps import build_corridor_map
+    a = build_corridor_map(120.0, 10.0, y0=3.0, res=200, soft=True)
+    b = build_corridor_map(120.0, 10.0, y0=3.0, res=200, soft=True)
+    assert np.array_equal(a, b)
+
+
+def test_terrain_extent_y_reads_obj(tmp_path):
+    from wildseed.core.density_maps import terrain_extent_y
+    obj = tmp_path / "terrain.obj"
+    obj.write_text("v -30 -25 1\nv 30 25 2\nvn 0 0 1\nv 0 5 0\n")
+    assert terrain_extent_y(obj) == (-25.0, 25.0)
+
+
+def test_corridor_map_cli_help():
+    """CLI renders --help without error and exposes the key options."""
+    from click.testing import CliRunner
+    from wildseed.cli.corridor_map import corridor_map
+    res = CliRunner().invoke(corridor_map, ["--help"])
+    assert res.exit_code == 0
+    for opt in ("--half-width", "--y0", "--soft", "--extent"):
+        assert opt in res.output
+
+
+def test_corridor_map_cli_writes_png(tmp_path):
+    from click.testing import CliRunner
+    from wildseed.cli.corridor_map import corridor_map
+    out = tmp_path / "c.png"
+    ctx = {"console": __import__("rich.console", fromlist=["Console"]).Console()}
+    res = CliRunner().invoke(
+        corridor_map,
+        ["--out", str(out), "--extent", "80", "--half-width", "8", "--res", "64"],
+        obj=ctx)
+    assert res.exit_code == 0, res.output
+    assert out.exists()
+    img = np.asarray(Image.open(out))
+    assert img.shape == (64, 64)
