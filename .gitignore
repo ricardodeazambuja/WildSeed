@@ -53,9 +53,18 @@ frames/
 # Flight recordings (videos/datasets; reproducible from seed + world)
 runs/
 
-# Synthesized DEMs (reproducible from seed+preset; bundled DEMs stay tracked)
+# Synthesized DEMs (reproducible from seed+preset; bundled DEMs stay tracked).
+# NB: .gitignore has no inline comments — keep patterns on their own lines.
 dem/synth*
 dem/*.lakes.json
+# scenario --profile vio_lio DEM + corridor map
+dem/vio_lio_*
+# wildseed heightmap default output
+dem/hm_d2.png
+# ground-clutter study scratch (relief / flat DEMs, corridor density map)
+dem/relief*.tif
+dem/flat.tif
+dem/corridor.png
 
 # Raw asset downloads + staging (registry is the durable record)
 Blender-Assets/**/_raw*/
