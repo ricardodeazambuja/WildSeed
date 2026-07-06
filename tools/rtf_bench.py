@@ -46,7 +46,10 @@ FR = os.path.join(WS, "frames")
 
 def main():
     ap = argparse.ArgumentParser(description="RTF-under-load harness (sensor rig active).")
-    ap.add_argument("--world", default="forest_world", help="Running world's <world name>.")
+    ap.add_argument("--world", default="forest_world",
+                    help="World FILE stem under worlds/ (e.g. vio_lio_7). The gz "
+                         "topic namespace is read from the file's <world name>, so "
+                         "the file stem need not match the internal world name.")
     ap.add_argument("--world-file", default=None,
                     help="Path to the .world (default worlds/<world>.world).")
     ap.add_argument("--tag", default="rtf", help="Name for outputs.")
@@ -65,6 +68,11 @@ def main():
     world_file = args.world_file or f"{WS}/worlds/{args.world}.world"
     if not os.path.exists(world_file):
         raise SystemExit(f"world file not found: {world_file} (run `generate --rig` first)")
+
+    # The /stats topic is namespaced by the world's INTERNAL <world name>, which
+    # need not match the file stem (scenario names every world "forest_world").
+    from wildseed.core.worlds import world_name_from_file
+    world_name = world_name_from_file(world_file)
 
     env = dict(os.environ)
     models = f"{WS}/models"
@@ -96,15 +104,15 @@ def main():
         if msg.real_time_factor > 0:
             st["rtf"] = msg.real_time_factor
 
-    node.subscribe(WorldStatistics, f"/world/{args.world}/stats", cb)
+    node.subscribe(WorldStatistics, f"/world/{world_name}/stats", cb)
 
     try:
         t0 = time.time()
         while st["sim_t"] is None:
             if time.time() - t0 > 40:
                 raise RuntimeError(
-                    f"no sim clock on /world/{args.world}/stats in 40 s "
-                    "(server running with -r? correct --world name?)")
+                    f"no sim clock on /world/{world_name}/stats in 40 s "
+                    "(server running with -r? correct --world file?)")
             time.sleep(0.1)
 
         # CRITICAL: /stats publishes a FROZEN clock while the world is still
@@ -148,6 +156,7 @@ def main():
     out = {
         "tag": args.tag,
         "world": args.world,
+        "world_name": world_name,
         "window_rtf": round(window_rtf, 3),
         "rtf_mean": round(float(arr.mean()), 3) if len(arr) else None,
         "rtf_median": round(float(np.median(arr)), 3) if len(arr) else None,

@@ -144,8 +144,12 @@ if os.environ.get("WATER") == "1":
         parts.append(f"    <include><name>{w}</name><uri>model://{w}</uri></include>\n")
     print(f"water models: {waters}")
 hero_rocks, hero_trees = [], []  # (x, y, z, scale) of grafted rocks/trees, for the hero cam
-if os.environ.get("FOREST") == "1" and os.path.exists("/workspace/worlds/forest_world.world"):
-    incs = ET.parse("/workspace/worlds/forest_world.world").getroot().find("world").findall("include")
+# FOREST_WORLD selects which placement world to graft objects from (default the
+# `generate` output). vio_bench sets it from --world so a scenario-named world
+# (e.g. worlds/vio_lio_7.world) can be benchmarked without renaming files.
+_FOREST_WORLD = os.environ.get("FOREST_WORLD", "/workspace/worlds/forest_world.world")
+if os.environ.get("FOREST") == "1" and os.path.exists(_FOREST_WORLD):
+    incs = ET.parse(_FOREST_WORLD).getroot().find("world").findall("include")
     n = 0
     for inc in incs:
         uri = inc.findtext("uri", "")

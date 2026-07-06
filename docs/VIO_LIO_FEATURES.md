@@ -106,8 +106,8 @@ Build a world, then measure it on the three axes the study identified. All run i
 # 1. build
 wildseed scenario --seed 7 --profile vio_lio
 
-# 2. measure
-wildseed benchmark vio   --tag recipe                    # camera aliasing / inliers (V1)
+# 2. measure  (--world takes the world FILE stem printed by the build)
+wildseed benchmark vio   --world vio_lio_7 --tag recipe --agl 2 --pitch 0.35 --step 2.0
 wildseed benchmark rtf   --world vio_lio_7 --tag recipe  # RTF under sensor load (V2, the cost)
 wildseed benchmark lidar --world vio_lio_7 --tag recipe  # LIDAR range roughness (V3)
 

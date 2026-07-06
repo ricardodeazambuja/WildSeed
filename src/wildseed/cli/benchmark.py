@@ -82,11 +82,12 @@ def vio(ctx, base_path, args):
 
     \b
     PREREQUISITE: GPU container wildseed:egl; a built world in models/.
-    Extra flags forward to the tool, e.g. --tag / --ground-modes / --viz.
+    Extra flags forward to the tool, e.g. --world <stem> (graft placement from
+    worlds/<stem>.world, e.g. a scenario world), --tag / --ground-modes / --viz.
 
     \b
     Examples:
-        wildseed benchmark vio --tag myworld
+        wildseed benchmark vio --world vio_lio_7 --tag recipe --agl 2 --step 2.0
         wildseed benchmark vio --ground-modes patchy,uniform_t1
     """
     _run_tool(ctx, "vio_bench.py", base_path, args)

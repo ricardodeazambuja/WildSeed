@@ -327,8 +327,24 @@ def main():
     ap.add_argument("--heightmap", default=None,
                     help="Option d2: benchmark a gz <heightmap> instead of the mesh ground. "
                          "Format 'PNG,EXTENT_m,Z_m' (e.g. dem/hm_d2.png,60,0.35).")
+    ap.add_argument("--world", default=None,
+                    help="Placement world FILE stem under worlds/ to graft objects "
+                         "from (e.g. vio_lio_7). Default: worlds/forest_world.world "
+                         "(the `generate` output). Terrain is always the current "
+                         "models/ground; this only selects which objects are placed.")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
+
+    if args.world:
+        # terrain_scene grafts placement from this file instead of the default
+        # forest_world.world, so a scenario-named world can be benchmarked directly.
+        if args.world.endswith(".world") or os.path.isabs(args.world):
+            wf = args.world
+        else:
+            wf = f"{WS}/worlds/{args.world}.world"
+        if not os.path.exists(wf):
+            raise SystemExit(f"world file not found: {wf}")
+        os.environ["FOREST_WORLD"] = wf
 
     if args.heightmap:
         os.environ["HEIGHTMAP"] = args.heightmap
