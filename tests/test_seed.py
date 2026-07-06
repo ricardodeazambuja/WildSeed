@@ -115,6 +115,27 @@ def test_rows_missing_dropout(tiny_world):
     assert 15 <= n <= 62, f"50% dropout of 77 slots should land well inside (15, 62), got {n}"
 
 
+def test_vio_lio_seed_reproducible_and_seed_sensitive():
+    """The recipe spec is a pure function of (seed + knobs): same seed -> identical,
+    different seed -> different placement/relief."""
+    from wildseed.core.scenario import resolve_scenario
+    a = resolve_scenario(7, profile="vio_lio")
+    assert a == resolve_scenario(7, profile="vio_lio")
+    b = resolve_scenario(8, profile="vio_lio")
+    # different placement seed AND different terrain -> a genuinely different world
+    assert a["stage_seeds"]["placement"] != b["stage_seeds"]["placement"]
+    assert a["terrain_knobs"] != b["terrain_knobs"]
+
+
+def test_vio_lio_variety_dial_changes_variant_count():
+    """--variety monotonically changes the recolour-variant count (uniqueness)."""
+    from wildseed.core.scenario import resolve_scenario
+    counts = [resolve_scenario(7, profile="vio_lio", variety=v)["variant_count"]
+              for v in (0.0, 0.5, 1.0)]
+    assert counts[0] < counts[-1]
+    assert counts == sorted(counts)
+
+
 def test_variant_order_does_not_depend_on_listing_order(tiny_world, monkeypatch):
     """Placement must not change with filesystem iteration order (it is OS/
     filesystem dependent); model listings are sorted before any RNG use."""

@@ -112,6 +112,19 @@ BIOME_SPACE = {
 # --density-scale), so two seeds of the same biome differ in population too.
 DENSITY_JITTER = (0.75, 1.25)
 
+# Named recipe profiles. A profile replaces the biome-envelope resolution with a
+# purpose-built one; today only the measured VIO/LIO-friendly recipe (patchy
+# ground + steered corridor scatter + drivable relief + rig — see
+# docs/GROUND_CLUTTER.md / docs/VIO_LIO_FEATURES.md).
+PROFILE_NAMES = ("vio_lio",)
+
+# vio_lio object-budget split (fractions of --object-density). Trees are the
+# strong VIO landmarks (confident inliers), rocks/bushes add near-field structure
+# for both camera and LIDAR. Grass is left to the patchy ground texture (0 here).
+VIO_LIO_SPLIT = {"tree": 0.24, "rock": 0.36, "bush": 0.40, "grass": 0.0}
+# Categories that get recolour variants when --variety asks for them.
+VIO_LIO_VARIANT_CATS = ("tree", "rock", "bush")
+
 
 def _stage_seed(seed_seq: np.random.SeedSequence) -> int:
     return int(seed_seq.generate_state(1)[0])
@@ -125,6 +138,11 @@ def resolve_scenario(
         size: int = 192,
         pixel_m: float = 1.6,
         max_slope_deg: float = 20.0,
+        profile: Optional[str] = None,
+        object_density: int = 175,
+        corridor_width: float = 8.0,
+        relief: float = 0.5,
+        variety: float = 0.5,
 ) -> dict:
     """Deterministically resolve a master seed into a full scenario spec.
 
@@ -133,7 +151,20 @@ def resolve_scenario(
     remaining knobs: every draw happens unconditionally, overrides just replace
     the drawn value, so `--biome temperate --seed 7` shares its terrain knobs
     with whatever seed 7 would draw for temperate at random.
+
+    When ``profile`` is set (e.g. ``"vio_lio"``), a purpose-built recipe resolver
+    is used instead of the biome envelopes; the ``object_density`` /
+    ``corridor_width`` / ``relief`` / ``variety`` knobs feed it (ignored for the
+    default biome path). The default (``profile=None``) resolution is unchanged.
     """
+    if profile:
+        if profile not in PROFILE_NAMES:
+            raise ValueError(f"unknown profile {profile!r}; expected one of {PROFILE_NAMES}")
+        return _resolve_vio_lio(
+            seed, biome=biome, preset=preset, size=size, pixel_m=pixel_m,
+            max_slope_deg=max_slope_deg, object_density=object_density,
+            corridor_width=corridor_width, relief=relief, variety=variety)
+
     ss = np.random.SeedSequence(seed)
     param_ss, tg_ss, ground_ss, place_ss = ss.spawn(4)
     rng = np.random.default_rng(param_ss)
@@ -192,6 +223,102 @@ def resolve_scenario(
     }
 
 
+def _resolve_vio_lio(
+        seed: int,
+        biome: Optional[str] = None,
+        preset: Optional[str] = None,
+        size: int = 192,
+        pixel_m: float = 1.6,
+        max_slope_deg: float = 20.0,
+        object_density: int = 175,
+        corridor_width: float = 8.0,
+        relief: float = 0.5,
+        variety: float = 0.5,
+) -> dict:
+    """Resolve the measured VIO/LIO recipe from a master seed.
+
+    Patchy ground (de-aliased texture) + a modest steered object budget in a
+    driving corridor (high local landmark density, RTF-friendly total) + a flat,
+    drivable macro with fine relief + the sensor rig. The knobs:
+
+      object_density  total scattered objects (study saturates VIO ~175).
+      corridor_width  driving-corridor HALF-width, m (steered placement band).
+      relief          0..1 macro amplitude within the drivable slope cap.
+      variety         0..1 single uniqueness dial: co-scales recolour-variant
+                      count, terrain roughness (detail) and corridor softness.
+
+    Same (seed + knobs) -> identical spec. The wild biome only supplies the
+    palette + ground material; the terrain is recipe-controlled, not envelope.
+    """
+    variety = float(min(max(variety, 0.0), 1.0))
+    relief = float(min(max(relief, 0.0), 1.0))
+
+    ss = np.random.SeedSequence(seed)
+    param_ss, tg_ss, ground_ss, place_ss, tex_ss = ss.spawn(5)
+    rng = np.random.default_rng(param_ss)
+
+    # biome drives ONLY palette + ground material (a wild biome; structured
+    # plantations are the aliasing worst-case, not this recipe's intent).
+    drawn_biome = WILD_BIOMES[int(rng.integers(len(WILD_BIOMES)))]
+    use_biome = biome or drawn_biome
+    if use_biome not in BIOME_SPACE:
+        raise ValueError(f"unknown biome {use_biome!r}; expected one of {BIOME_NAMES}")
+    space = BIOME_SPACE[use_biome]
+    use_preset = preset or "flat"
+
+    # Drivable macro with fine relief: gentle amplitude (relief knob) kept under
+    # the slope cap; roughness (detail) co-scaled by variety. Draws happen
+    # unconditionally so overrides don't shift the stream.
+    feature_m = round(float(rng.uniform(120, 160)), 3)
+    smooth_sigma = round(float(rng.uniform(1.4, 1.8)), 3)
+    knobs = {
+        "amplitude_m": round(2.0 + relief * 8.0, 3),   # 2..10 m gentle macro
+        "feature_m": feature_m,
+        "detail": round(0.06 + variety * 0.14, 3),     # roughness dial
+        "smooth_sigma": smooth_sigma,
+        "max_mean_slope_deg": float(max_slope_deg),
+    }
+
+    # Steered object budget, split across the landmark categories.
+    density = {cat: int(round(object_density * frac))
+               for cat, frac in sorted(VIO_LIO_SPLIT.items())}
+
+    variant_count = int(round(variety * 3))            # 0..3 recolour variants
+
+    return {
+        "scenario_format": SCENARIO_FORMAT,
+        "profile": "vio_lio",
+        "seed": int(seed),
+        "biome": use_biome,
+        "preset": use_preset,
+        "ground_biome": space["ground"],
+        "water": False,
+        "size": int(size),
+        "pixel_m": float(pixel_m),
+        "density_scale": 1.0,
+        "terrain_knobs": knobs,
+        "density": density,
+        "rows": {},
+        "object_density": int(object_density),
+        "corridor": {
+            "half_width": float(corridor_width),
+            "y0": 0.0,
+            "res": 512,
+            "soft": True,
+        },
+        "variety": variety,
+        "relief": relief,
+        "variant_count": variant_count,
+        "rig": {"z": 2.0},
+        "stage_seeds": {
+            "terraingen": _stage_seed(tg_ss),
+            "ground": _stage_seed(ground_ss),
+            "placement": _stage_seed(place_ss),
+            "texrand": _stage_seed(tex_ss),
+        },
+    }
+
+
 def palette_from_manifest(manifest_path: Path, biome: str) -> Dict[str, List[str]]:
     """Read the per-biome model palette from assets/manifest.yaml."""
     man = yaml.safe_load(Path(manifest_path).read_text())
@@ -238,9 +365,11 @@ def run_scenario(
 
     base_path = Path(base_path)
     seeds = spec["stage_seeds"]
+    profile = spec.get("profile")
+    stem = f"{profile}_{spec['seed']}" if profile else f"scenario_{spec['seed']}"
 
     # 1. synthesize the landform
-    dem_path = base_path / "dem" / f"scenario_{spec['seed']}.tif"
+    dem_path = base_path / "dem" / f"{stem}.tif"
     dem_path.parent.mkdir(parents=True, exist_ok=True)
     tg_cfg = TerrainGenConfig(preset=spec["preset"], seed=seeds["terraingen"],
                               resolution=spec["size"], pixel_m=spec["pixel_m"],
@@ -268,16 +397,34 @@ def run_scenario(
     if lakes:
         write_basin_water_models(base_path / "models", lakes)
 
-    # 4. populate (palette-constrained, placement-seeded; structured biomes
-    # plant their rows category in rows, everything else scatters)
+    # 3b. profile extras: recolour variants (uniqueness) + steered corridor map.
     palette = palette_from_manifest(manifest_path, spec["biome"])
+    density_maps = None
+    corridor_png = None
+    rig_config = rig_pose = None
+    if profile == "vio_lio":
+        palette = _apply_recolour_variants(
+            base_path / "models", palette, spec.get("variant_count", 0),
+            seeds["texrand"])
+        corridor_png = _build_corridor_for(base_path, spec, stem)
+        density_maps = {"*": corridor_png}
+        from wildseed.core.rig import RigConfig
+        rig_config = RigConfig()
+        rig_pose = (0.0, 0.0, float(spec.get("rig", {}).get("z", 2.0)), 0.0, 0.0, 0.0)
+
+    # 4. populate (palette-constrained, placement-seeded; structured biomes
+    # plant their rows category in rows, everything else scatters). For vio_lio,
+    # placement follows the corridor density map and the rig is injected.
     populator = WorldPopulator(base_path=base_path, seed=seeds["placement"],
-                               variants=palette, progress_callback=progress_callback)
+                               variants=palette, density_maps=density_maps,
+                               progress_callback=progress_callback)
     world_path = populator.create_forest_world(dict(spec["density"]),
-                                               rows_config=spec.get("rows") or None)
+                                               rows_config=spec.get("rows") or None,
+                                               rig_config=rig_config,
+                                               rig_pose=rig_pose)
 
     # 5. finalize: name the world after the seed, add water, record the spec
-    out_world = base_path / "worlds" / f"scenario_{spec['seed']}.world"
+    out_world = base_path / "worlds" / f"{stem}.world"
     shutil.move(str(world_path), str(out_world))
     gt_src = world_path.with_name(world_path.stem + ".instances.json")
     out_gt = out_world.with_name(out_world.stem + ".instances.json")
@@ -294,9 +441,52 @@ def run_scenario(
         "lakes": len(lakes),
         "instances": str(out_gt),
     }
+    if corridor_png:
+        record["outputs"]["corridor_map"] = str(corridor_png)
     record["palette"] = palette
     spec_path.write_text(yaml.safe_dump(record, sort_keys=False))
 
     return {"world": out_world, "spec": spec_path, "dem": dem_path,
             "instances": out_gt, "lakes": len(lakes),
+            "corridor_map": corridor_png,
             "stats": populator.get_model_statistics()}
+
+
+def _apply_recolour_variants(models_root: Path, palette: Dict[str, List[str]],
+                             variant_count: int, seed: int) -> Dict[str, List[str]]:
+    """Stamp ``variant_count`` recolour variants of the palette models and return
+    an extended palette that includes them (the uniqueness dial's variety lever).
+
+    No-op when ``variant_count <= 0``. Variants are deterministic in ``seed``
+    (see texrand.randomize_models); only ids that actually landed on disk are
+    added to the palette.
+    """
+    if variant_count <= 0:
+        return palette
+    from wildseed.core.texrand import randomize_models
+    cats = [c for c in VIO_LIO_VARIANT_CATS if palette.get(c)]
+    randomize_models(Path(models_root), cats, variant_count, seed=seed,
+                     strength=0.5, mode="hsv")
+    out = {cat: list(ids) for cat, ids in palette.items()}
+    for cat in cats:
+        for base_id in list(palette[cat]):
+            for k in range(variant_count):
+                vid = f"{base_id}_dr{k}"
+                if (Path(models_root) / cat / vid).is_dir():
+                    out[cat].append(vid)
+    return out
+
+
+def _build_corridor_for(base_path: Path, spec: dict, stem: str) -> Path:
+    """Paint the steered driving-corridor density map for a vio_lio scenario,
+    stretched over the just-meshed terrain, and return its path."""
+    from wildseed.core.density_maps import (
+        build_corridor_map, save_png, terrain_extent_y)
+    obj = base_path / "models" / "ground" / "mesh" / "terrain.obj"
+    min_y, max_y = terrain_extent_y(obj)
+    extent_m = max_y - min_y
+    c = spec["corridor"]
+    img = build_corridor_map(extent_m, c["half_width"], y0=c["y0"],
+                             res=c["res"], soft=c["soft"])
+    out = base_path / "dem" / f"{stem}_corridor.png"
+    return save_png(img, out)

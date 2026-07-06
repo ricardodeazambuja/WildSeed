@@ -4,13 +4,31 @@ import click
 from pathlib import Path
 
 from wildseed.config.schema import PRESET_NAMES
-from wildseed.core.scenario import BIOME_NAMES, resolve_scenario
+from wildseed.core.scenario import BIOME_NAMES, PROFILE_NAMES, resolve_scenario
 
 
 @click.command()
 @click.option("--seed", type=int, required=True,
               help="Master seed. Drives EVERY stage (landform, ground, placement) "
                    "and the randomized parameters; same seed -> identical world.")
+@click.option("--profile", type=click.Choice(PROFILE_NAMES), default=None,
+              help="Recipe profile. 'vio_lio' builds the measured VIO/LIO-friendly "
+                   "world (patchy ground + steered corridor scatter + drivable relief "
+                   "+ sensor rig) instead of the biome-envelope scenario. See "
+                   "docs/VIO_LIO_FEATURES.md.")
+@click.option("--object-density", "object_density", type=int, default=175,
+              show_default=True,
+              help="[vio_lio] Total steered objects (study saturates VIO ~175).")
+@click.option("--corridor-width", "corridor_width", type=float, default=8.0,
+              show_default=True,
+              help="[vio_lio] Driving-corridor HALF-width, m (steered placement band).")
+@click.option("--relief", type=click.FloatRange(0.0, 1.0), default=0.5,
+              show_default=True,
+              help="[vio_lio] Macro relief amplitude 0..1, kept under the slope cap.")
+@click.option("--variety", type=click.FloatRange(0.0, 1.0), default=0.5,
+              show_default=True,
+              help="[vio_lio] Uniqueness dial 0..1: co-scales recolour-variant count, "
+                   "terrain roughness and corridor softness. Higher = less repetition.")
 @click.option("--biome", type=click.Choice(BIOME_NAMES + ("random",)), default="random",
               help="Biome (palette + ground + terrain envelope). Default: seed-random.")
 @click.option("--preset", type=click.Choice(PRESET_NAMES + ("random",)), default="random",
@@ -31,7 +49,8 @@ from wildseed.core.scenario import BIOME_NAMES, resolve_scenario
 @click.option("--dry-run", is_flag=True, default=False,
               help="Print the resolved scenario spec (YAML) and exit without building.")
 @click.pass_context
-def scenario(ctx, seed, biome, preset, density_scale, size, pixel_m,
+def scenario(ctx, seed, profile, object_density, corridor_width, relief, variety,
+             biome, preset, density_scale, size, pixel_m,
              max_slope_deg, manifest, base_path, dry_run):
     """Generate a complete randomized world from ONE master seed.
 
@@ -41,11 +60,18 @@ def scenario(ctx, seed, biome, preset, density_scale, size, pixel_m,
     resolved value is written to worlds/scenario_<seed>.yaml, so the world is
     reproducible from the seed (plus any explicit overrides) alone.
 
+    With --profile vio_lio the biome envelopes are replaced by the measured
+    VIO/LIO recipe (patchy ground + steered corridor scatter + drivable relief +
+    sensor rig); tune it with --object-density / --corridor-width / --relief /
+    --variety. See docs/VIO_LIO_FEATURES.md.
+
     \b
     Examples:
         wildseed scenario --seed 42                      # fully random, reproducible
         wildseed scenario --seed 42 --biome alpine       # fix the biome, randomize the rest
         wildseed scenario --seed 7 --density-scale 1.5   # denser variant of seed 7
+        wildseed scenario --seed 7 --profile vio_lio     # the VIO/LIO-friendly recipe
+        wildseed scenario --seed 7 --profile vio_lio --variety 0.8 --object-density 200
         wildseed scenario --seed 7 --dry-run             # inspect without building
     """
     console = ctx.obj["console"]
@@ -56,10 +82,13 @@ def scenario(ctx, seed, biome, preset, density_scale, size, pixel_m,
         preset=None if preset == "random" else preset,
         density_scale=density_scale, size=size, pixel_m=pixel_m,
         max_slope_deg=max_slope_deg,
+        profile=profile, object_density=object_density,
+        corridor_width=corridor_width, relief=relief, variety=variety,
     )
 
     import yaml
-    console.print(f"[bold]Scenario[/bold] seed=[cyan]{seed}[/cyan] "
+    plabel = f" profile=[cyan]{profile}[/cyan]" if profile else ""
+    console.print(f"[bold]Scenario[/bold] seed=[cyan]{seed}[/cyan]{plabel} "
                   f"biome=[cyan]{spec['biome']}[/cyan] preset=[cyan]{spec['preset']}[/cyan]")
     console.print(f"[dim]{yaml.safe_dump(spec, sort_keys=False)}[/dim]")
     if dry_run:
@@ -83,4 +112,7 @@ def scenario(ctx, seed, biome, preset, density_scale, size, pixel_m,
     console.print(f"  models placed: {stats['total_models']} "
                   f"{ {k: v for k, v in stats['by_category'].items() if v} }"
                   + (f"  lakes: {result['lakes']}" if result["lakes"] else ""))
+    if result.get("corridor_map"):
+        console.print(f"  corridor map -> [cyan]{result['corridor_map']}[/cyan]  "
+                      "(steered placement; rig injected)")
     console.print(f"[dim]Launch: wildseed launch --world {result['world']}[/dim]")
