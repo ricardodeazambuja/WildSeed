@@ -16,11 +16,14 @@
 - [x] Phase 1v — unit tests + determinism for the spec pipeline (188 tests green;
       golden fixture pins format-3 draws; D5 provenance stamping landed early)
 - [x] Phase 2 — `wildseed sweep`: axis sweep + benchmark report card
-- [~] Phase 2/3v — GPU ladders: photometric MEASURED (negative result — sun
-      geometry does not stress fixed-exposure matching; documented in
-      EXPERIMENTS.md); structure ladder + fog A/B + G4 double-build running
+- [x] Phase 2/3v — GPU ladders MEASURED: photometric (negative result — sun
+      geometry does not stress fixed-exposure matching), structure (monotone
+      41→59→70 inliers, RTF cost visible), fog A/B (ORB/frame −62%, the
+      world-side photometric stressor confirmed; also surfaced + fixed a
+      silent stale-frame reuse bug in the render harness)
 - [x] Phase 4 — reproducibility: hashes + provenance stamped, determinism
-      tests, CI workflow (in-container G4 gate pending)
+      tests, CI workflow, G4 MEASURED (identical condition in two separate
+      container runs → identical world sha256)
 - [x] Phase 5 — extensibility: user-YAML biomes under the contract
 - [ ] Wrap-up — docs (EXPERIMENTS.md), README trail, morning report
 

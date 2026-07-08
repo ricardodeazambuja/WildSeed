@@ -158,7 +158,29 @@ invocation* — and produced the **identical world sha256**
 bake → placement → seeded weather stage → world XML) is byte-deterministic;
 the provenance hash in the record is a real pin, not a checksum of luck.
 
-<!-- FOG_AB: pending -->
+### fog A/B — the weather axis IS the photometric stressor
+
+Same world as the clear baseline (structure 0.7, texture 1.0, seed 42),
+`weather: fog` applied under the master seed, rendered with `--world-sun`:
+
+| condition | ORB/frame | putative/pair | inliers/pair | verdict |
+|---|---|---|---|---|
+| clear (55° sun) | 1461 | 122 | 88 | MARGINAL |
+| **fog** | **556** | **80** | **66** | MARGINAL |
+
+Fog collapses the detector's feature supply (−62% ORB/frame — contrast
+washout), thinning matches end to end. On this recipe world the budget
+absorbs it (still MARGINAL); on a leaner world the same fog pushes toward
+failure. Together with the sun-geometry negative result above: **randomize
+`photometric` for lighting variation, use `weather: fog`/`overcast` when the
+experiment needs photometric difficulty** — and keep `benchmark rtf` in the
+loop, since emitters cost RTF.
+
+*(Found while measuring this: weather worlds used to crash the render
+harness on a duplicate emitter model and vio_bench silently re-scored the
+previous run's cached frames. Both fixed — stale captures are now purged and
+an empty capture aborts loudly. If you benchmarked a weather world before
+2026-07-08, re-run it.)*
 
 ## See also
 
