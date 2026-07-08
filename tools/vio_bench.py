@@ -332,8 +332,16 @@ def main():
                          "from (e.g. vio_lio_7). Default: worlds/forest_world.world "
                          "(the `generate` output). Terrain is always the current "
                          "models/ground; this only selects which objects are placed.")
+    ap.add_argument("--world-sun", action="store_true",
+                    help="Render under the --world file's sun/scene/weather (the "
+                         "photometric stage) instead of the harness default sun. "
+                         "REQUIRED to measure the photometric/weather axes; off by "
+                         "default so baseline numbers keep their fixed lighting.")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
+
+    if args.world_sun:
+        os.environ["GRAFT_SUN"] = "1"
 
     if args.world:
         # terrain_scene grafts placement from this file instead of the default

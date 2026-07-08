@@ -247,5 +247,45 @@ elif os.environ.get("VIO_CAMS") == "1":
     parts.append(cam("vio_ground", vx, vy, gz_ + 2.0,  0.20, 0.0, fov=1.0, w=640, h=480))
     print(f"VIO cams: drone@{gz_+12:.1f}m ground@{gz_+2:.1f}m pitch=0.35/0.20 640x480 fov1.0")
 parts.append("  </world>\n</sdf>\n")
-open(OUT, "w").write("".join(parts))
+xml = "".join(parts)
+
+# GRAFT_SUN=1: render under the PLACEMENT WORLD's photometric state -- its
+# <light name='sun'>, <scene>, weather_* models/includes (sun disk, emitters)
+# and the particle-emitter plugin -- instead of this harness's fixed sun.
+# Required for the photometric/weather stress axes to be measurable by
+# vio_bench (--world-sun); OFF by default so all previously measured baselines
+# keep their lighting. (vio_bench sets it from --world-sun.)
+if os.environ.get("GRAFT_SUN") == "1" and os.path.exists(_FOREST_WORLD):
+    src = ET.parse(_FOREST_WORLD).getroot().find("world")
+    dst_root = ET.fromstring(xml)
+    dst = dst_root.find("world")
+
+    def _swap(tag, match=lambda e: True):
+        s = next((el for el in src.findall(tag) if match(el)), None)
+        if s is None:
+            return 0
+        for el in [el for el in dst.findall(tag) if match(el)]:
+            dst.remove(el)
+        dst.append(s)
+        return 1
+
+    swapped = _swap("light", lambda e: e.get("name") == "sun")
+    swapped += _swap("scene")
+    extras = 0
+    for el in src.findall("model"):
+        if (el.get("name") or "").startswith("weather_"):
+            dst.append(el)
+            extras += 1
+    for el in src.findall("include"):
+        if el.findtext("uri", "").startswith("model://weather_"):
+            dst.append(el)
+            extras += 1
+    for el in src.findall("plugin"):
+        if "particle-emitter" in (el.get("filename") or ""):
+            dst.append(el)
+            extras += 1
+    xml = ET.tostring(dst_root, encoding="unicode")
+    print(f"GRAFT_SUN: {swapped} sun/scene + {extras} weather elements from {_FOREST_WORLD}")
+
+open(OUT, "w").write(xml)
 print(f"wrote {OUT}  oblique cam=({cx:.0f},{cy:.0f},{cz:.0f}) pitch={pitch:.2f} yaw={yaw:.2f}")
