@@ -133,9 +133,32 @@ axis is measurable, the effect is just not the naive one. Weather presets
 (fog/overcast) are the world-side photometric stressor candidates instead —
 see the fog A/B below.
 
-<!-- FOG_AB: pending -->
+### structure — the flagship ladder (monotone gain, visible RTF cost)
 
-<!-- STRUCTURE_LADDER: pending -->
+Same spec, `--axis structure --values 0,0.35,0.7 --bench vio,rtf`
+(photometric held at the spec's 0.9):
+
+| structure | objects | inliers/pair | ratio_reject | rtf_min | load_s | world sha256[:12] |
+|---|---|---|---|---|---|---|
+| 0.00 | 0 | 41 | 0.96 | 0.999 | 2.2 | 45b68343ac5f |
+| 0.35 | 88 | 59 | 0.95 | 0.999 | 22.0 | 91ce7cf92f5c |
+| 0.70 | 175 | 70 | 0.94 | 0.927 | 24.0 | c1c0fe98d2a5 |
+
+Monotone VIO gain along the dial, and the study's cost story reproduced in
+the same table: the object budget is what you pay RTF and load time for.
+This is the report card working as designed — gain and cost per rung, each
+rung regenerable from the spec + value + seed.
+
+### Byte-determinism, measured end to end (G4)
+
+The `structure=0.7` rung resolves to the identical condition as a standalone
+`wildseed experiment` build run ~25 minutes earlier in a *separate container
+invocation* — and produced the **identical world sha256**
+(`c1c0fe98d2a5…`). The full chain (DEM synth → Blender mesh → 4K ground
+bake → placement → seeded weather stage → world XML) is byte-deterministic;
+the provenance hash in the record is a real pin, not a checksum of luck.
+
+<!-- FOG_AB: pending -->
 
 ## See also
 
