@@ -155,6 +155,11 @@ if os.environ.get("FOREST") == "1" and os.path.exists(_FOREST_WORLD):
         uri = inc.findtext("uri", "")
         if "model://ground" in uri or "model://water" in uri:
             continue  # we add terrain/water ourselves; avoid duplicate model names
+        if uri.startswith("model://weather_"):
+            # weather emitters are photometric state, not placement: they render
+            # only under GRAFT_SUN (which grafts them itself) — copying them here
+            # too made gz abort on the duplicate model name and kill the render.
+            continue
         parts.append("    " + ET.tostring(inc, encoding="unicode").strip() + "\n")
         n += 1
         p = inc.findtext("pose", "0 0 0 0 0 0").split()

@@ -159,6 +159,14 @@ def render_trajectory(poses, fov):
     env["FOREST"] = "0" if os.environ.get("HEIGHTMAP") else "1"
     run(["python3", f"{WS}/tools/terrain_scene.py"], env=env)
     cams = [f"vio_cam_{i}" for i in range(len(poses))]
+    # stale per-cam captures from a PREVIOUS run must not survive: if gz fails
+    # to load (e.g. a bad world), the loop below would silently re-score the
+    # old frames as if they were this run's (measured failure mode).
+    for c in cams:
+        try:
+            os.remove(f"{FR}/{c}.npy")
+        except FileNotFoundError:
+            pass
     g = subprocess.Popen(
         ["gz", "sim", "-s", "-r", "--headless-rendering", f"{WS}/worlds/terrain_scene.world"],
         stdout=open(f"{FR}/gz_bench.log", "w"), stderr=subprocess.STDOUT)
@@ -178,6 +186,9 @@ def render_trajectory(poses, fov):
             frames.append((a[..., :3] if a.shape[-1] == 4 else a).astype(np.uint8))
         else:
             frames.append(None)
+    if all(f is None for f in frames):
+        raise SystemExit("no frames captured — gz failed to render (bad world? "
+                         f"duplicate model names?). See {FR}/gz_bench.log")
     return frames
 
 
