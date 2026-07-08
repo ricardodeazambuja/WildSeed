@@ -111,3 +111,13 @@ def test_experiment_spec_biome_file_roundtrip(tmp_path):
     # without the file the same name must be rejected up-front
     with pytest.raises(Exception, match="unknown biome"):
         ExperimentSpec(hypothesis="x", seed=7, profile=None, biome="mangrove")
+
+
+def test_relative_biome_file_resolves_against_spec_dir(tmp_path):
+    from wildseed.core.experiment import load_experiment
+    _write(tmp_path, GOOD, "my_biomes.yaml")
+    spec_p = tmp_path / "exp.yaml"
+    spec_p.write_text("hypothesis: h\nseed: 7\nprofile: null\n"
+                      "biome: mangrove\nbiome_file: my_biomes.yaml\n")
+    spec = load_experiment(spec_p)
+    assert spec.biome_file == str(tmp_path / "my_biomes.yaml")

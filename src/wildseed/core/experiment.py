@@ -111,11 +111,20 @@ def experiment_stem(spec: ExperimentSpec) -> str:
 
 
 def load_experiment(path: Path) -> ExperimentSpec:
-    """Load + validate an experiment spec YAML (pydantic errors propagate)."""
-    data = yaml.safe_load(Path(path).read_text())
+    """Load + validate an experiment spec YAML (pydantic errors propagate).
+
+    A relative ``biome_file`` resolves against the spec file's directory
+    (specs and their biome files travel together)."""
+    path = Path(path)
+    data = yaml.safe_load(path.read_text())
     if not isinstance(data, dict):
         raise ValueError(f"{path}: expected a YAML mapping, got {type(data).__name__}")
-    return ExperimentSpec(**data)
+    spec = ExperimentSpec(**data)
+    if spec.biome_file and not Path(spec.biome_file).is_absolute():
+        sibling = path.parent / spec.biome_file
+        if sibling.exists():
+            spec.biome_file = str(sibling)
+    return spec
 
 
 def resolve_experiment(spec: ExperimentSpec) -> dict:
