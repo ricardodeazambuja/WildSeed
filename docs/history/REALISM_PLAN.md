@@ -1,8 +1,8 @@
 # Forest3D realism plan — reaching reference-screenshot quality
 
 > **⚠️ Historical (superseded).** Original realism plan, kept for provenance. The work it
-> scoped was completed — see [`docs/DEMO_REALISM_V2_REPORT.md`](../DEMO_REALISM_V2_REPORT.md)
-> (final report) and [`docs/baseline_metrics.md`](../baseline_metrics.md) (metrics). Paths
+> scoped was completed — see [`docs/history/DEMO_REALISM_V2_REPORT.md`](DEMO_REALISM_V2_REPORT.md)
+> (final report) and [`docs/history/baseline_metrics.md`](baseline_metrics.md) (metrics). Paths
 > below that say `spike/` now live under `tools/` (one-off diagnostic images under
 > `tools/archive/`); this archived text is not rewritten for the rename.
 

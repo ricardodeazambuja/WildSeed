@@ -117,5 +117,5 @@ normalize scripts are `tools/fetch_polyhaven.py` and `tools/import_gltf.py`.
 
 ## 6. Ready-made scenarios
 
-Five complete demo scenarios (incl. two snow) with exact commands and images:
+Six complete demo scenarios (incl. two snow) with exact commands and images:
 **`docs/SCENARIOS.md`**. Rebuild them all with `tools/build_scenarios.py`.

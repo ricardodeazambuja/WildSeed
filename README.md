@@ -18,7 +18,7 @@ each generated world is a standard SDF `.world` file you launch with plain `gz s
 **Scope: worlds only.** Robots, sensors and autonomy stacks are deliberately out of
 scope and live in a separate repository — WildSeed generates the environments they
 are spawned into. (The only sensor-adjacent piece here is a printable lens-flare
-camera-plugin snippet, see `wildseed weather --show-lens-flare-snippet`.)
+camera-plugin snippet, see `wildseed weather -w <world> --show-lens-flare-snippet`.)
 
 [![Gazebo: Harmonic](https://img.shields.io/badge/Gazebo-Harmonic-f58113.svg)](https://gazebosim.org/docs/harmonic)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
@@ -156,8 +156,8 @@ measured to be **physics-step-bound**, not render-bound (shadows/labels off
 changed nothing; `max_step_size` 1→4 ms scaled RTF ~linearly). If a robot's
 controllers starve, first cut `--density-scale` (grass/bush dominate include
 count), then raise the world's physics step. For worlds hosting an external
-robot with no segmentation camera, inject with `wildseed rig --inject --shell-only
---no-labels` (skips one Label plugin per include). Assets converted with
+robot with no segmentation camera, inject with `wildseed rig --inject <world>
+--shell-only --no-labels` (skips one Label plugin per include). Assets converted with
 `configs/realism.yaml` keep foliage at FULL poly (30–60 MB visuals);
 `configs/sim-fast.yaml` is the RTF-lean conversion counterpart.
 
@@ -268,7 +268,7 @@ Common pitfalls and how to avoid each — worth reading before running the demo 
 - **Procedural Assets**: `wildseed assetgen` synthesizes seeded parametric rocks, boulders,
   trees, conifers, bushes and grass in headless Blender — tiny models, no downloads
   ([docs](docs/DOMAIN_RANDOMIZATION.md))
-- **Weather**: `wildseed weather` presets — overcast, fog, rain, snow, sun glare
+- **Weather**: `wildseed weather` presets — clear, overcast, fog, rain, snow, sunglare
   (particle emitters + sun/scene rewrite, idempotent) ([docs](docs/DOMAIN_RANDOMIZATION.md))
 - **Unified CLI**: Simple `wildseed` command with subcommands for each operation
 - **Docker Support**: Pre-built images with GDAL for easy deployment
@@ -387,13 +387,23 @@ Same seed ⇒ byte-identical trajectory. Kinematic mode teleports the rig
 
 ```
 wildseed --help                    # Show all commands
-wildseed terrain --help            # Terrain generation help
+wildseed terrain --help            # Terrain generation help (DEM -> mesh)
+wildseed terraingen --help         # Procedural DEM synthesis help
+wildseed ground --help             # Seeded ground material / water help
 wildseed convert --help            # Asset conversion help
 wildseed generate --help           # Forest generation help
+wildseed scenario --help           # Master-seed scenario orchestrator help
 wildseed launch --help             # Launch Gazebo help
+wildseed randomize --help          # Texture domain randomization help
+wildseed weather --help            # Weather presets help
+wildseed assetgen --help           # Procedural (parametric) asset synthesis help
 wildseed rig --help                # Sensor rig model generation help
 wildseed fly --help                # Seeded rig flights help
 wildseed record --help             # Demo video / dataset recording help
+wildseed height --help             # Terrain ground-z query (spawn robots ON the ground)
+wildseed corridor-map --help       # Steered-scatter density-map generator help
+wildseed heightmap --help          # cm-relief heightmap ground (option d2) help
+wildseed benchmark --help          # VIO/LIO benchmark group (vio, rtf, lidar, validate)
 
 # Global options
 wildseed -v ...                    # Verbose output

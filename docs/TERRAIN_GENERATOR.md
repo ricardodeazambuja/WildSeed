@@ -75,6 +75,9 @@ Each preset is a bundle of feature defaults; **any CLI flag overrides** the pres
 # finishing
 --edge-taper F           border relief taper (avoid cliff edges); lakeland uses less
 --smooth S               final anti-facet Gaussian sigma (px)
+--max-slope DEG          ground-robot slope cap: rescale the relief so the mean surface
+                         slope meets it (consumes no RNG — same seed, same layout).
+                         Off by default here (aerial/scenery); `scenario` defaults it to 20.
 ```
 
 ### Local smoothness vs. global pattern

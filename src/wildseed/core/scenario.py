@@ -42,7 +42,7 @@ STRUCTURED_BIOMES = ("orchard", "vineyard")
 BIOME_NAMES = WILD_BIOMES + STRUCTURED_BIOMES
 
 # Per-biome envelopes. Centre values mirror the tuned demo scenarios
-# (tools/build_scenarios.py + docs/DEMO_REALISM_V2_REPORT.md); the ranges give
+# (tools/build_scenarios.py + docs/history/DEMO_REALISM_V2_REPORT.md); the ranges give
 # seed-to-seed variety without leaving the envelope the demos proved renders well
 # at robot scale. `knobs` are terraingen overrides drawn uniformly from (lo, hi);
 # knobs a biome's demo never set are left to the preset defaults.

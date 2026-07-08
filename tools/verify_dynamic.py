@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase-4 gate (docs/SENSOR_RIG_PLAN.md): verdict the DYNAMIC flight mode.
+"""Phase-4 gate (docs/history/SENSOR_RIG_PLAN.md): verdict the DYNAMIC flight mode.
 
 Records IMU + odometry while `wildseed fly --mode dynamic --play` runs in
 another process, then verdicts:

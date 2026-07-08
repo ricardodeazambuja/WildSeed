@@ -74,6 +74,7 @@ trajectory renders in a single gz session.
 | `terrain_gallery.py` | Tile the terrain-preset gallery → `terrain_gallery.png`. |
 | `make_ground.py` | The patchy-ground compositor preview/standalone. |
 | `model_probe.py` | Drop a single model into a probe world for inspection. |
+| `verify_dynamic.py` | Dynamic-flight gate: records IMU + odometry next to `wildseed fly --mode dynamic --play` and verdicts hover gravity, spike-free flight, and path length. |
 
 ## Legacy spike helpers (kept for reference, not on the demo path)
 
@@ -83,8 +84,10 @@ trajectory renders in a single gz session.
 
 ## Committed artifacts
 
-- **Live deliverables** (in `tools/`): `scenarios_gallery.png`, `scenarios_overview.png`,
-  `compare.png`, `asset_catalog.png`, `phaseB_detiling_autocorr.png`, `terrain_gallery.png`,
-  `terrain_seeds.png`, `diag_detail.png`.
+- **Live deliverables** (in `tools/`): `scenario_seeds_gallery.png`,
+  `scenario_structured_gallery.png`, `scenarios_gallery.png`, `scenarios_overview.png`,
+  `asset_catalog.png`, `phaseB_detiling_autocorr.png`, `terrain_gallery.png`,
+  `terrain_seeds.png`, `diag_detail.png`. (`compare.png` is a runtime output of
+  `compare.py`, no longer committed.)
 - **`archive/`** — one-off spike-era diagnostic renders, kept for provenance only.
 - **`ASSET_REGISTRY.md`** — per-asset source URL + license credits (all CC0).

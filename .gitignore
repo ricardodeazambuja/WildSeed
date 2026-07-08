@@ -65,6 +65,8 @@ dem/hm_d2.png
 dem/relief*.tif
 dem/flat.tif
 dem/corridor.png
+# `wildseed terrain --enhance` output (regenerated from the bundled terrain.tif)
+dem/terrain_enhanced.tif
 
 # Raw asset downloads + staging (registry is the durable record)
 Blender-Assets/**/_raw*/

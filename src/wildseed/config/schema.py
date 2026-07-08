@@ -46,10 +46,12 @@ class CategoryConfig(BaseModel):
     )
     laser_retro: Optional[float] = Field(
         default=None,
-        description="laser_retro written on the collision so simulated lidar "
-                    "intensity identifies the category (CropCraft-style semantic "
-                    "labels). None -> category default (tree=1 bush=2 rock=3 "
-                    "grass=4 sand=5; ground stays 0)."
+        description="laser_retro written on both the visual and the collision "
+                    "(gz gpu_lidar reads visuals; CPU ray sensors read "
+                    "collisions) so simulated lidar intensity identifies the "
+                    "category (CropCraft-style semantic labels). None -> "
+                    "category default (tree=1 bush=2 rock=3 grass=4 sand=5; "
+                    "ground stays 0)."
     )
 
     @field_validator("collision_strategy")

@@ -52,6 +52,9 @@ on/off, rates, resolutions, lidar channels, stereo baseline, mount poses.
   world-shell (sensor system plugins, `<spherical_coordinates>`, semantic
   labels) with **no** rig include/model — for worlds that will host an
   externally spawned robot (e.g. a ROS 2 UGV) instead of the flying rig
+- `wildseed height -x X -y Y [--json]` — print the terrain ground z at (x, y)
+  (sampled from `models/ground/mesh/terrain.stl`), so an external spawner can
+  place its robot ON the surface instead of inside or above it
 
 Bundled configs: `configs/rig_cinematic.yaml` (720p main camera only, for
 videos), `configs/rig_showcase.yaml` (1080p, same idea),
@@ -89,8 +92,10 @@ server + record in one container run.
 ## Known behaviors & gotchas
 
 - **Semantic ground truth shares one id space**: lidar `laser_retro` intensity
-  == segmentation class label (tree=1, bush=2, rock=3, grass=4, sand=5,
-  ground=6, water=7), consistent with `instances.json`.
+  and the segmentation class label carry the same per-category value (tree=1,
+  bush=2, rock=3, grass=4, sand=5), consistent with `instances.json`. Ground
+  (6) and water (7) exist only as segmentation labels — the ground/water
+  models carry no `laser_retro`, so lidar intensity from them stays 0.
 - **`laser_retro` is read from the visual, not the collision** — gz's GPU lidar
   is rendering-based. WildSeed puts the labels on visuals; if you add your own
   labelled models, do the same.

@@ -2,7 +2,7 @@
 
 Quantifies the gap between our 6 demo hero renders and the 3 original Gazebo
 screenshots using IMAGE-LEVEL feature metrics (this is deliberately NOT a VIO/LIO
-odometry rig — scope decision in docs/DEMO_REALISM_V2.md §0):
+odometry rig — scope decision in docs/history/DEMO_REALISM_V2.md §0):
 
   - ORB + FAST feature counts. Reported per-megapixel (raw counts scale with pixel
     area, so they are not comparable across resolutions). ORB nfeatures is raised to
@@ -36,7 +36,7 @@ Run (in the container, where the metrics gate lives):
 Outputs:
   tools/compare.png        our hero | reference original, per scene, with metrics
   stdout                   a markdown metric table (originals + 6 scenes + gap)
-  --md PATH                also write the table to PATH (e.g. docs/baseline_metrics.md)
+  --md PATH                also write the table to PATH (e.g. docs/history/baseline_metrics.md)
 """
 import argparse
 import glob
