@@ -15,10 +15,13 @@
 - [x] Phase 1 — experiment spec: stressor dials + sun/weather folded under the master seed
 - [x] Phase 1v — unit tests + determinism for the spec pipeline (188 tests green;
       golden fixture pins format-3 draws; D5 provenance stamping landed early)
-- [ ] Phase 2 — `wildseed sweep`: axis sweep + benchmark report card
-- [ ] Phase 2/3v — GPU ladder run, incl. MEASURED photometric axis
-- [ ] Phase 4 — reproducibility: world hashes + provenance stamped, CI gate
-- [ ] Phase 5 — extensibility: user-YAML biomes/profiles with contract (time-boxed)
+- [x] Phase 2 — `wildseed sweep`: axis sweep + benchmark report card
+- [~] Phase 2/3v — GPU ladders: photometric MEASURED (negative result — sun
+      geometry does not stress fixed-exposure matching; documented in
+      EXPERIMENTS.md); structure ladder + fog A/B + G4 double-build running
+- [x] Phase 4 — reproducibility: hashes + provenance stamped, determinism
+      tests, CI workflow (in-container G4 gate pending)
+- [x] Phase 5 — extensibility: user-YAML biomes under the contract
 - [ ] Wrap-up — docs (EXPERIMENTS.md), README trail, morning report
 
 ## Design decisions (locked unless evidence overturns them)

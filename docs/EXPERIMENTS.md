@@ -105,7 +105,37 @@ comparable.
 
 ## Measured ladders
 
-<!-- MEASURED_LADDERS: filled by the GPU validation run -->
+Validation runs of 2026-07-08 (seed 42, recipe world: structure 0.7,
+texture 1.0; vio at the P1 ground-robot pose; RTX 2070 Max-Q, wildseed:egl).
+
+### photometric — a measured NEGATIVE result (kept, but read it right)
+
+| photometric | sun | inliers/pair | ratio_reject | inlier_ratio | verdict |
+|---|---|---|---|---|---|
+| 0.0 | 55°, 1× | 88 | 0.92 | 0.73 | MARGINAL |
+| 0.5 | 30°, 2× | 87 | 0.93 | 0.79 | MARGINAL |
+| 1.0 | 5°, 5× + disk | **98** | 0.92 | **0.84** | MARGINAL |
+
+**The sun-geometry dial does NOT stress frame-to-frame matching in this
+render model — it mildly helps.** Physics: the sun is static and the gz
+camera has fixed exposure, so long grazing-light shadows are *scene-fixed,
+high-contrast edges* — extra trackable landmarks (inlier_ratio rises 0.73 →
+0.84). The glare disk at 5° elevation sits above the down-pitched camera's
+frame at this pose. The real-world low-sun failure modes (auto-exposure
+transients, lens flare/bloom, moving shadows) are camera-plugin and dynamics
+effects this world-side axis cannot inject — pair the `sunglare` preset with
+the `gz-sim-lens-flare-system` camera snippet on YOUR robot for those.
+
+Use the dial for reproducible lighting *variation* (domain randomization);
+do not assume high values make a world harder for VIO. The verdict came from
+running the benchmark under the world's actual sun (`--world-sun`) — the
+axis is measurable, the effect is just not the naive one. Weather presets
+(fog/overcast) are the world-side photometric stressor candidates instead —
+see the fog A/B below.
+
+<!-- FOG_AB: pending -->
+
+<!-- STRUCTURE_LADDER: pending -->
 
 ## See also
 

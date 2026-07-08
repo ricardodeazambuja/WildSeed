@@ -172,6 +172,7 @@ robot with no segmentation camera, inject with `wildseed rig --inject <world>
 - **[docs/DOMAIN_RANDOMIZATION.md](docs/DOMAIN_RANDOMIZATION.md)** — texture / weather / layout randomization for perception training
 
 *Sensors & perception (VIO / LIO)*
+- **[docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)** — **hypothesis-driven worlds**: the `experiment` spec (stressor dials mapped to measured failure modes), `sweep` difficulty ladders, custom biomes under the testing contract
 - **[docs/SENSOR_RIG.md](docs/SENSOR_RIG.md)** — the flying sensor rig: cameras, GPU-lidar, IMU, GPS, semantic labels (`rig` / `fly` / `record`)
 - **[docs/VIO_LIO_FEATURES.md](docs/VIO_LIO_FEATURES.md)** — **build & tune VIO/LIO-friendly worlds**: the one-command `scenario --profile vio_lio` recipe, the uniqueness knobs, and the `benchmark` measure→tune loop
 - **[docs/VIO_BENCH.md](docs/VIO_BENCH.md)** — how the camera data-association benchmark works (why *aliasing*, not feature count, predicts VIO failure)
@@ -270,6 +271,14 @@ Common pitfalls and how to avoid each — worth reading before running the demo 
   ([docs](docs/DOMAIN_RANDOMIZATION.md))
 - **Weather**: `wildseed weather` presets — clear, overcast, fog, rain, snow, sunglare
   (particle emitters + sun/scene rewrite, idempotent) ([docs](docs/DOMAIN_RANDOMIZATION.md))
+- **Experiment Specs & Sweeps**: `wildseed experiment` turns a YAML of stressor
+  dials (structure, texture, relief, variety, photometric sun-stress — each
+  mapped to a measured VIO/LIO failure mode) + a hypothesis into one
+  hash-stamped reproducible world; `wildseed sweep` grades a dial into a
+  benchmarked difficulty ladder ([docs](docs/EXPERIMENTS.md))
+- **Custom Biomes**: user YAML biomes under a testing contract (declared
+  terrain envelope, ground family, structure densities, palette) — scoreable
+  by construction, never disturbing existing seed mappings ([docs](docs/EXPERIMENTS.md))
 - **Unified CLI**: Simple `wildseed` command with subcommands for each operation
 - **Docker Support**: Pre-built images with GDAL for easy deployment
 
@@ -404,6 +413,8 @@ wildseed height --help             # Terrain ground-z query (spawn robots ON the
 wildseed corridor-map --help       # Steered-scatter density-map generator help
 wildseed heightmap --help          # cm-relief heightmap ground (option d2) help
 wildseed benchmark --help          # VIO/LIO benchmark group (vio, rtf, lidar, validate)
+wildseed experiment --help         # Hypothesis + stressor dials -> one reproducible world
+wildseed sweep --help              # Sweep one stressor dial -> difficulty-ladder report
 
 # Global options
 wildseed -v ...                    # Verbose output
