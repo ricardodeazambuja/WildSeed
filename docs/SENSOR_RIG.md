@@ -55,6 +55,16 @@ on/off, rates, resolutions, lidar channels, stereo baseline, mount poses.
 - `wildseed height -x X -y Y [--json]` — print the terrain ground z at (x, y)
   (sampled from `models/ground/mesh/terrain.stl`), so an external spawner can
   place its robot ON the surface instead of inside or above it
+- `wildseed rig --calib 0.5 --calib-seed N` — **seeded calibration
+  randomization** (the instrument-error axis): perturbs sensor mount
+  extrinsics (±5 mm/0.3° at dial 1.0), camera FOV→fx (±1%), and injects IMU
+  noise (EuRoC-class MEMS baseline × 4·dial²; 0→ideal, 0.5→1×, 1→4×). The
+  TRUE drawn values are exported to `rig_calibration.json` in the model dir
+  (both continuous-time densities and the gz per-sample stddevs) — feed an
+  estimator the truth for a clean test, or the nominals for a
+  calibration-robustness test. rgbd/segcam move WITH cam_left so the
+  pixel-paired ground truth survives the miscalibration. `--calib 0` writes
+  the unperturbed calibration export.
 
 Bundled configs: `configs/rig_cinematic.yaml` (720p main camera only, for
 videos), `configs/rig_showcase.yaml` (1080p, same idea),

@@ -265,13 +265,26 @@ def build_rig_model(config: RigConfig) -> ET.Element:
     return model
 
 
-def write_rig_model(config: RigConfig, models_path: Path) -> Path:
-    """Write models/<name>/{model.config,model.sdf}; returns the model dir."""
+def write_rig_model(config: RigConfig, models_path: Path,
+                    calib_dial: Optional[float] = None,
+                    calib_seed: int = 0) -> Path:
+    """Write models/<name>/{model.config,model.sdf}; returns the model dir.
+
+    ``calib_dial`` (0..1) applies the seeded calibration perturbation (mount
+    extrinsics, camera FOV/fx, IMU noise — see core.calib) and exports the
+    TRUE drawn values to ``rig_calibration.json`` in the model dir. 0 leaves
+    the SDF untouched but still exports the nominal calibration."""
     model_dir = Path(models_path) / config.name
     model_dir.mkdir(parents=True, exist_ok=True)
 
+    model_el = build_rig_model(config)
+    if calib_dial is not None:
+        from wildseed.core.calib import perturb_rig_model, write_calibration
+        truth = perturb_rig_model(model_el, calib_dial, calib_seed)
+        write_calibration(model_dir, truth)
+
     sdf_root = ET.Element("sdf", version="1.8")
-    sdf_root.append(build_rig_model(config))
+    sdf_root.append(model_el)
     tree = ET.ElementTree(sdf_root)
     try:
         ET.indent(tree, space="    ")

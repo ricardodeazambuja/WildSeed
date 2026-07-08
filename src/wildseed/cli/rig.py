@@ -33,9 +33,19 @@ from wildseed.core.rig import (RigConfig, inject_rig_into_world, rig_topics,
                    "plugins. Use when nothing consumes segmentation (e.g. an "
                    "external robot without a segmentation camera) — on dense "
                    "worlds thousands of Label systems are pure overhead.")
+@click.option("--calib", "calib_dial", type=click.FloatRange(0.0, 1.0),
+              default=None,
+              help="Calibration-randomization dial 0..1: perturb mount "
+                   "extrinsics (5 mm/0.3 deg at 1.0), camera FOV/fx (1%), and "
+                   "inject IMU noise (MEMS baseline x 4*dial^2). TRUE values "
+                   "land in rig_calibration.json next to the model — clean "
+                   "test = feed the estimator truth; robustness test = feed "
+                   "it the nominals. 0 = unperturbed calibration export.")
+@click.option("--calib-seed", type=int, default=0, show_default=True,
+              help="Seed for --calib; same (dial, seed) -> same perturbation.")
 @click.pass_context
 def rig(ctx, config_path, models_dir, name, inject_world, pose_str,
-        shell_only, no_labels):
+        shell_only, no_labels, calib_dial, calib_seed):
     """Generate the flying sensor-rig model (test instrument + camera dolly).
 
     Full suite by default: stereo cams, wide-angle, RGB-D, instance
@@ -91,8 +101,14 @@ def rig(ctx, config_path, models_dir, name, inject_world, pose_str,
                       f"[cyan]{inject_world}[/cyan] (idempotent; {labels_note})")
         return
 
-    model_dir = write_rig_model(config, Path(models_dir))
+    model_dir = write_rig_model(config, Path(models_dir),
+                                calib_dial=calib_dial, calib_seed=calib_seed)
     console.print(f"[green]Sensor rig written[/green] -> [cyan]{model_dir}[/cyan]")
+    if calib_dial is not None:
+        console.print(f"  calibration: dial=[cyan]{calib_dial}[/cyan] "
+                      f"seed=[cyan]{calib_seed}[/cyan] -> "
+                      f"[cyan]{model_dir}/rig_calibration.json[/cyan] "
+                      "(true values; SDF carries the perturbed instrument)")
     console.print("Topics:")
     for stream, topic in sorted(rig_topics(config).items()):
         console.print(f"  {stream:14} [dim]{topic}[/dim]")

@@ -182,6 +182,16 @@ previous run's cached frames. Both fixed — stale captures are now purged and
 an empty capture aborts loudly. If you benchmarked a weather world before
 2026-07-08, re-run it.)*
 
+## The instrument axis: calibration randomization
+
+Calibration error is an *instrument* property, not world state, so it lives
+on the rig: `wildseed rig --calib <dial> --calib-seed N` perturbs mount
+extrinsics, camera fx, and IMU noise, exporting the true drawn values to
+`rig_calibration.json` (see [SENSOR_RIG.md](SENSOR_RIG.md)). Clean test =
+give your estimator the truth; robustness test = give it the nominals. The
+remaining goal axis — dynamics (moving distractors + GT motion masks) — is
+designed in [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) (deferred axes).
+
 ## See also
 
 - [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) — design decisions + gates for this layer
