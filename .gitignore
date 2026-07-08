@@ -79,6 +79,8 @@ Blender-Assets/_stage/
 dem/scenario_*.tif
 dem/scenario_*.lakes.json
 worlds/scenario_*
+# experiment/sweep outputs (regenerable from their spec YAML)
+dem/exp_*
 
 # Upstream Forest3D reference screenshots (renders of commercial assets; local-only
 # baselines for tools/compare.py — not redistributed)

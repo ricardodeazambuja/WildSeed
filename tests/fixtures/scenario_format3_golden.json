@@ -1,0 +1,115 @@
+[
+  {
+    "expect": {
+      "biome": "wetland",
+      "density": {
+        "bush": 127,
+        "grass": 268,
+        "rock": 32,
+        "tree": 111
+      },
+      "preset": "lakeland",
+      "stage_seeds": {
+        "ground": 3831650445,
+        "placement": 3842200183,
+        "terraingen": 3618983171
+      },
+      "terrain_knobs": {
+        "detail": 0.084,
+        "feature_m": 133.654,
+        "max_mean_slope_deg": 20.0,
+        "smooth_sigma": 1.748
+      }
+    },
+    "kw": {
+      "seed": 7
+    }
+  },
+  {
+    "expect": {
+      "biome": "alpine",
+      "density": {
+        "bush": 45,
+        "grass": 113,
+        "rock": 84,
+        "tree": 87
+      },
+      "preset": "mountainous",
+      "stage_seeds": {
+        "ground": 233227757,
+        "placement": 3276785861,
+        "terraingen": 4091952314
+      },
+      "terrain_knobs": {
+        "amplitude_m": 96.439,
+        "detail": 0.375,
+        "feature_m": 82.373,
+        "max_mean_slope_deg": 20.0,
+        "ridged": 0.439,
+        "smooth_sigma": 1.07
+      }
+    },
+    "kw": {
+      "seed": 42
+    }
+  },
+  {
+    "expect": {
+      "biome": "savanna",
+      "density": {
+        "bush": 70,
+        "grass": 0,
+        "rock": 63,
+        "tree": 42
+      },
+      "preset": "flat",
+      "stage_seeds": {
+        "ground": 3831650445,
+        "placement": 3842200183,
+        "terraingen": 3618983171,
+        "texrand": 1956387801
+      },
+      "terrain_knobs": {
+        "amplitude_m": 6.0,
+        "detail": 0.13,
+        "feature_m": 122.124,
+        "max_mean_slope_deg": 20.0,
+        "smooth_sigma": 1.637
+      }
+    },
+    "kw": {
+      "profile": "vio_lio",
+      "seed": 7
+    }
+  },
+  {
+    "expect": {
+      "biome": "wetland",
+      "density": {
+        "bush": 70,
+        "grass": 0,
+        "rock": 63,
+        "tree": 42
+      },
+      "preset": "flat",
+      "stage_seeds": {
+        "ground": 233227757,
+        "placement": 3276785861,
+        "terraingen": 4091952314,
+        "texrand": 3644269654
+      },
+      "terrain_knobs": {
+        "amplitude_m": 6.0,
+        "detail": 0.172,
+        "feature_m": 156.439,
+        "max_mean_slope_deg": 20.0,
+        "smooth_sigma": 1.751
+      }
+    },
+    "kw": {
+      "profile": "vio_lio",
+      "seed": 42,
+      "variety": 0.8
+    }
+  }
+]

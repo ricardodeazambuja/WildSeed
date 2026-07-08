@@ -74,6 +74,7 @@ from wildseed.cli.record import record
 from wildseed.cli.corridor_map import corridor_map
 from wildseed.cli.heightmap import heightmap
 from wildseed.cli.benchmark import benchmark
+from wildseed.cli.experiment import experiment
 
 main.add_command(terrain)
 main.add_command(terraingen)
@@ -92,6 +93,7 @@ main.add_command(record)
 main.add_command(corridor_map)
 main.add_command(heightmap)
 main.add_command(benchmark)
+main.add_command(experiment)
 
 
 if __name__ == "__main__":

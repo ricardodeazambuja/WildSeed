@@ -201,6 +201,7 @@ def apply_weather(world_path: Path, preset: str, models_dir: Path,
                   sun_intensity: Optional[float] = None,
                   particle_rate: Optional[float] = None,
                   fall_height_m: float = 20.0,
+                  sun_disk: Optional[bool] = None,
                   out_path: Optional[Path] = None) -> dict:
     """Apply a weather preset to a generated world (idempotent, re-runnable).
 
@@ -276,7 +277,8 @@ def apply_weather(world_path: Path, preset: str, models_dir: Path,
         emitted = str(wdir)
 
     # --- emissive sun disk (visible glare source for cameras) -------------- #
-    if p.get("sun_disk"):
+    use_disk = sun_disk if sun_disk is not None else p.get("sun_disk")
+    if use_disk:
         dist = 500.0
         sx, sy, sz = (-d[0] * dist, -d[1] * dist, -d[2] * dist)
         disk = ET.SubElement(world, "model", {"name": "weather_sun_disk"})

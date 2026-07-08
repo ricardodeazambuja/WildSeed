@@ -29,6 +29,18 @@ from wildseed.core.scenario import BIOME_NAMES, PROFILE_NAMES, resolve_scenario
               show_default=True,
               help="[vio_lio] Uniqueness dial 0..1: co-scales recolour-variant count, "
                    "terrain roughness and corridor softness. Higher = less repetition.")
+@click.option("--texture", type=click.FloatRange(0.0, 1.0), default=1.0,
+              show_default=True,
+              help="[vio_lio] Ground-aliasing dial 0..1: <0.5 uniform ground (the "
+                   "measured aliasing worst case), >=0.5 patchy (de-aliased).")
+@click.option("--photometric", type=click.FloatRange(0.0, 1.0), default=None,
+              help="Sun-stress dial 0..1: elevation 55->5 deg, intensity 1->5x, "
+                   "emissive sun disk at >=0.75; azimuth seeded + recorded. "
+                   "Unset = leave the world's default sun.")
+@click.option("--weather", type=str, default=None,
+              help="Weather preset applied under the master seed (clear, overcast, "
+                   "fog, rain, snow, sunglare, or 'random' = seeded draw). "
+                   "Unset = no weather stage.")
 @click.option("--biome", type=click.Choice(BIOME_NAMES + ("random",)), default="random",
               help="Biome (palette + ground + terrain envelope). Default: seed-random.")
 @click.option("--preset", type=click.Choice(PRESET_NAMES + ("random",)), default="random",
@@ -50,6 +62,7 @@ from wildseed.core.scenario import BIOME_NAMES, PROFILE_NAMES, resolve_scenario
               help="Print the resolved scenario spec (YAML) and exit without building.")
 @click.pass_context
 def scenario(ctx, seed, profile, object_density, corridor_width, relief, variety,
+             texture, photometric, weather,
              biome, preset, density_scale, size, pixel_m,
              max_slope_deg, manifest, base_path, dry_run):
     """Generate a complete randomized world from ONE master seed.
@@ -76,15 +89,19 @@ def scenario(ctx, seed, profile, object_density, corridor_width, relief, variety
     """
     console = ctx.obj["console"]
 
-    spec = resolve_scenario(
-        seed,
-        biome=None if biome == "random" else biome,
-        preset=None if preset == "random" else preset,
-        density_scale=density_scale, size=size, pixel_m=pixel_m,
-        max_slope_deg=max_slope_deg,
-        profile=profile, object_density=object_density,
-        corridor_width=corridor_width, relief=relief, variety=variety,
-    )
+    try:
+        spec = resolve_scenario(
+            seed,
+            biome=None if biome == "random" else biome,
+            preset=None if preset == "random" else preset,
+            density_scale=density_scale, size=size, pixel_m=pixel_m,
+            max_slope_deg=max_slope_deg,
+            profile=profile, object_density=object_density,
+            corridor_width=corridor_width, relief=relief, variety=variety,
+            texture=texture, photometric=photometric, weather=weather,
+        )
+    except ValueError as e:
+        raise click.ClickException(str(e))
 
     import yaml
     plabel = f" profile=[cyan]{profile}[/cyan]" if profile else ""

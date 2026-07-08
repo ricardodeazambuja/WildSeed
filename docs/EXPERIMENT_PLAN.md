@@ -12,8 +12,9 @@
 ## Status
 
 - [x] Phase 0 — this plan, committed
-- [ ] Phase 1 — experiment spec: stressor dials + sun/weather folded under the master seed
-- [ ] Phase 1v — unit tests + determinism for the spec pipeline
+- [x] Phase 1 — experiment spec: stressor dials + sun/weather folded under the master seed
+- [x] Phase 1v — unit tests + determinism for the spec pipeline (188 tests green;
+      golden fixture pins format-3 draws; D5 provenance stamping landed early)
 - [ ] Phase 2 — `wildseed sweep`: axis sweep + benchmark report card
 - [ ] Phase 2/3v — GPU ladder run, incl. MEASURED photometric axis
 - [ ] Phase 4 — reproducibility: world hashes + provenance stamped, CI gate

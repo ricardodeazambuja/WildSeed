@@ -131,3 +131,17 @@ def test_lens_flare_snippet_targets_camera_plugin():
 def test_cli_registers_weather():
     from wildseed.cli.main import main as cli_main
     assert "weather" in cli_main.commands
+
+
+def test_sun_disk_override_forces_disk_on_clear(world_file, tmp_path):
+    """The photometric stage (scenario format 4) adds a glare disk to any
+    preset via the sun_disk override; clear has none by default."""
+    apply_weather(world_file, "clear", tmp_path / "models", sun_disk=True,
+                  sun_elevation_deg=5.0, sun_intensity=5.0)
+    w = _world(world_file)
+    disks = [m for m in w.findall("model") if m.get("name") == "weather_sun_disk"]
+    assert len(disks) == 1
+    # and the override can suppress sunglare's default disk
+    apply_weather(world_file, "sunglare", tmp_path / "models", sun_disk=False)
+    w = _world(world_file)
+    assert not [m for m in w.findall("model") if m.get("name") == "weather_sun_disk"]

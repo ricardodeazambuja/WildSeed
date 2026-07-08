@@ -29,7 +29,12 @@ logger = logging.getLogger("wildseed.scenario")
 
 # 3: terrain_knobs gained max_mean_slope_deg (ground-robot slope cap, default
 #    20°) — same seed yields the same layout but capped relief vs format 2.
-SCENARIO_FORMAT = 3
+# 4: optional photometric/weather stage under the master seed. The sun stream
+#    is an APPENDED SeedSequence child with its own rng, so every format-3
+#    stage seed and draw is unchanged; with the new dials unset the built world
+#    is byte-identical to format 3. vio_lio also gained the `texture` dial
+#    (<0.5 -> uniform ground = the measured aliasing worst case; else patchy).
+SCENARIO_FORMAT = 4
 
 # Wilderness biomes: random scatter, subject to the >=3-tree/>=2-understory
 # species-variety floor (repeated-model aliasing is the enemy there).
@@ -130,6 +135,53 @@ def _stage_seed(seed_seq: np.random.SeedSequence) -> int:
     return int(seed_seq.generate_state(1)[0])
 
 
+def _resolve_photometric(sun_ss: np.random.SeedSequence,
+                         photometric: Optional[float],
+                         weather: Optional[str]):
+    """Resolve the seeded photometric/weather stage (format 4).
+
+    Draws happen UNCONDITIONALLY from the appended sun stream (so setting or
+    clearing the dials never shifts any other stream); the drawn values are
+    only *applied* when the corresponding dial/preset is set.
+
+    The photometric dial maps to the measured photometric failure mode
+    (docs/EXPERIMENT_PLAN.md D2): 0 = benign high sun, 1 = grazing sun + glare.
+      elevation  55 deg -> 5 deg   (linear; long shadows, low-contrast ground)
+      intensity  1x -> 5x          (quadratic ramp; auto-exposure stress)
+      sun disk   at dial >= 0.75   (emissive glare source for forward cameras)
+      azimuth    drawn uniform [0, 360) and RECORDED (reproducible, seed-varied)
+
+    Returns (photometric_block | None, weather_name | None, sun_stage_seed).
+    """
+    from wildseed.core.weather import WEATHER_PRESETS
+    rng = np.random.default_rng(sun_ss)
+    azimuth = round(float(rng.uniform(0.0, 360.0)), 2)
+    weather_draw = WEATHER_PRESETS[int(rng.integers(len(WEATHER_PRESETS)))]
+
+    if weather is None:
+        weather_name = None
+    elif weather == "random":
+        weather_name = weather_draw
+    elif weather in WEATHER_PRESETS:
+        weather_name = weather
+    else:
+        raise ValueError(
+            f"unknown weather {weather!r}; expected one of "
+            f"{WEATHER_PRESETS + ('random',)}")
+
+    block = None
+    if photometric is not None:
+        d = float(min(max(photometric, 0.0), 1.0))
+        block = {
+            "dial": d,
+            "sun_elevation_deg": round(55.0 - 50.0 * d, 2),
+            "sun_azimuth_deg": azimuth,
+            "sun_intensity": round(1.0 + 4.0 * d * d, 3),
+            "sun_disk": bool(d >= 0.75),
+        }
+    return block, weather_name, _stage_seed(sun_ss)
+
+
 def resolve_scenario(
         seed: int,
         biome: Optional[str] = None,
@@ -143,6 +195,9 @@ def resolve_scenario(
         corridor_width: float = 8.0,
         relief: float = 0.5,
         variety: float = 0.5,
+        texture: float = 1.0,
+        photometric: Optional[float] = None,
+        weather: Optional[str] = None,
 ) -> dict:
     """Deterministically resolve a master seed into a full scenario spec.
 
@@ -154,8 +209,13 @@ def resolve_scenario(
 
     When ``profile`` is set (e.g. ``"vio_lio"``), a purpose-built recipe resolver
     is used instead of the biome envelopes; the ``object_density`` /
-    ``corridor_width`` / ``relief`` / ``variety`` knobs feed it (ignored for the
-    default biome path). The default (``profile=None``) resolution is unchanged.
+    ``corridor_width`` / ``relief`` / ``variety`` / ``texture`` knobs feed it
+    (ignored for the default biome path). The default (``profile=None``)
+    resolution is unchanged.
+
+    ``photometric`` (0..1 sun-stress dial) and ``weather`` (preset name or
+    ``"random"``) resolve on BOTH paths from an appended sun stream (format 4);
+    left unset they change nothing.
     """
     if profile:
         if profile not in PROFILE_NAMES:
@@ -163,10 +223,15 @@ def resolve_scenario(
         return _resolve_vio_lio(
             seed, biome=biome, preset=preset, size=size, pixel_m=pixel_m,
             max_slope_deg=max_slope_deg, object_density=object_density,
-            corridor_width=corridor_width, relief=relief, variety=variety)
+            corridor_width=corridor_width, relief=relief, variety=variety,
+            texture=texture, photometric=photometric, weather=weather)
 
     ss = np.random.SeedSequence(seed)
     param_ss, tg_ss, ground_ss, place_ss = ss.spawn(4)
+    # APPENDED spawn (format 4): children 0-3 above are unchanged vs format 3.
+    sun_ss = ss.spawn(1)[0]
+    photometric_block, weather_name, sun_seed = _resolve_photometric(
+        sun_ss, photometric, weather)
     rng = np.random.default_rng(param_ss)
 
     drawn_biome = BIOME_NAMES[int(rng.integers(len(BIOME_NAMES)))]
@@ -208,6 +273,7 @@ def resolve_scenario(
         "biome": use_biome,
         "preset": use_preset,
         "ground_biome": space["ground"],
+        "ground_mode": "patchy",
         "water": bool(space["water"]),
         "size": int(size),
         "pixel_m": float(pixel_m),
@@ -215,10 +281,13 @@ def resolve_scenario(
         "terrain_knobs": knobs,
         "density": density,
         "rows": rows,
+        "photometric": photometric_block,
+        "weather": weather_name,
         "stage_seeds": {
             "terraingen": _stage_seed(tg_ss),
             "ground": _stage_seed(ground_ss),
             "placement": _stage_seed(place_ss),
+            "sun": sun_seed,
         },
     }
 
@@ -234,6 +303,9 @@ def _resolve_vio_lio(
         corridor_width: float = 8.0,
         relief: float = 0.5,
         variety: float = 0.5,
+        texture: float = 1.0,
+        photometric: Optional[float] = None,
+        weather: Optional[str] = None,
 ) -> dict:
     """Resolve the measured VIO/LIO recipe from a master seed.
 
@@ -246,15 +318,27 @@ def _resolve_vio_lio(
       relief          0..1 macro amplitude within the drivable slope cap.
       variety         0..1 single uniqueness dial: co-scales recolour-variant
                       count, terrain roughness (detail) and corridor softness.
+      texture         0..1 aliasing dial: <0.5 composites the UNIFORM ground
+                      (the measured aliasing worst case), >=0.5 the patchy
+                      de-aliased ground. The lever is discrete (two compositor
+                      modes); the resolved ground_mode is recorded.
+      photometric     0..1 sun-stress dial (see _resolve_photometric); None
+                      leaves the world's default sun untouched.
+      weather         preset name or "random" (seeded draw); None = no change.
 
     Same (seed + knobs) -> identical spec. The wild biome only supplies the
     palette + ground material; the terrain is recipe-controlled, not envelope.
     """
     variety = float(min(max(variety, 0.0), 1.0))
     relief = float(min(max(relief, 0.0), 1.0))
+    texture = float(min(max(texture, 0.0), 1.0))
 
     ss = np.random.SeedSequence(seed)
     param_ss, tg_ss, ground_ss, place_ss, tex_ss = ss.spawn(5)
+    # APPENDED spawn (format 4): children 0-4 above are unchanged vs format 3.
+    sun_ss = ss.spawn(1)[0]
+    photometric_block, weather_name, sun_seed = _resolve_photometric(
+        sun_ss, photometric, weather)
     rng = np.random.default_rng(param_ss)
 
     # biome drives ONLY palette + ground material (a wild biome; structured
@@ -292,6 +376,7 @@ def _resolve_vio_lio(
         "biome": use_biome,
         "preset": use_preset,
         "ground_biome": space["ground"],
+        "ground_mode": "uniform" if texture < 0.5 else "patchy",
         "water": False,
         "size": int(size),
         "pixel_m": float(pixel_m),
@@ -308,13 +393,17 @@ def _resolve_vio_lio(
         },
         "variety": variety,
         "relief": relief,
+        "texture": texture,
         "variant_count": variant_count,
         "rig": {"z": 2.0},
+        "photometric": photometric_block,
+        "weather": weather_name,
         "stage_seeds": {
             "terraingen": _stage_seed(tg_ss),
             "ground": _stage_seed(ground_ss),
             "placement": _stage_seed(place_ss),
             "texrand": _stage_seed(tex_ss),
+            "sun": sun_seed,
         },
     }
 
@@ -353,9 +442,12 @@ def run_scenario(
         manifest_path: Path,
         texture_root: Optional[Path] = None,
         progress_callback=None,
+        out_stem: Optional[str] = None,
 ) -> dict:
     """Build the world a resolved spec describes: terraingen -> terrain -> ground
-    (+ per-basin water) -> generate. Returns paths of everything written."""
+    (+ per-basin water) -> generate -> optional photometric/weather stage.
+    Returns paths of everything written. ``out_stem`` overrides the output
+    naming (used by experiments/sweeps so runs don't collide)."""
     from wildseed.config.loader import load_config
     from wildseed.config.schema import GroundConfig, TerrainGenConfig
     from wildseed.core.terraingen import synthesize_dem
@@ -366,7 +458,8 @@ def run_scenario(
     base_path = Path(base_path)
     seeds = spec["stage_seeds"]
     profile = spec.get("profile")
-    stem = f"{profile}_{spec['seed']}" if profile else f"scenario_{spec['seed']}"
+    stem = out_stem or (f"{profile}_{spec['seed']}" if profile
+                        else f"scenario_{spec['seed']}")
 
     # 1. synthesize the landform
     dem_path = base_path / "dem" / f"{stem}.tif"
@@ -386,8 +479,10 @@ def run_scenario(
                                  blender_path=config.blender.path)
     generator.process_terrain()
 
-    # 3. ground material (+ water)
-    gc = GroundConfig(mode="patchy", biome=spec["ground_biome"], seed=seeds["ground"])
+    # 3. ground material (+ water). ground_mode is the texture-dial lever:
+    # uniform = the measured aliasing worst case, patchy = de-aliased (default).
+    gc = GroundConfig(mode=spec.get("ground_mode", "patchy"),
+                      biome=spec["ground_biome"], seed=seeds["ground"])
     troot = Path(texture_root) if texture_root else base_path / "Blender-Assets" / "soil"
     comp = GroundCompositor(ground_dir=base_path / "models" / "ground",
                             texture_root=troot, config=gc)
@@ -433,6 +528,21 @@ def run_scenario(
     if lakes:
         _append_water_includes(out_world, len(lakes))
 
+    # 6. photometric/weather stage (format 4): rewrite the sun/scene (and add
+    # the emitter/sun-disk) with the values the sun stream resolved. Runs
+    # before hashing so the hashes cover the world actually shipped.
+    weather_applied = None
+    if spec.get("weather") or spec.get("photometric"):
+        from wildseed.core.weather import apply_weather
+        photo = spec.get("photometric") or {}
+        weather_applied = apply_weather(
+            out_world, spec.get("weather") or "clear",
+            base_path / "models",
+            sun_elevation_deg=photo.get("sun_elevation_deg"),
+            sun_azimuth_deg=photo.get("sun_azimuth_deg"),
+            sun_intensity=photo.get("sun_intensity"),
+            sun_disk=photo.get("sun_disk"))
+
     spec_path = out_world.with_suffix(".yaml")
     record = dict(spec)
     record["outputs"] = {
@@ -443,13 +553,53 @@ def run_scenario(
     }
     if corridor_png:
         record["outputs"]["corridor_map"] = str(corridor_png)
+    if weather_applied:
+        record["weather_applied"] = weather_applied
     record["palette"] = palette
+    record["provenance"] = _provenance(out_world, dem_path, out_gt)
     spec_path.write_text(yaml.safe_dump(record, sort_keys=False))
 
     return {"world": out_world, "spec": spec_path, "dem": dem_path,
             "instances": out_gt, "lakes": len(lakes),
             "corridor_map": corridor_png,
+            "provenance": record["provenance"],
             "stats": populator.get_model_statistics()}
+
+
+def _sha256(path: Path) -> Optional[str]:
+    import hashlib
+    p = Path(path)
+    if not p.exists():
+        return None
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def _provenance(world: Path, dem: Path, instances: Path) -> dict:
+    """Citability block: artifact hashes + generator version + git commit.
+
+    The world hash is the pin a result cites ("ATE X on world <stem> sha256
+    <hash>"); rebuilding from the same resolved spec must reproduce it.
+    """
+    from wildseed import __version__
+    commit = None
+    try:
+        import subprocess
+        r = subprocess.run(["git", "rev-parse", "--short=12", "HEAD"],
+                           cwd=Path(__file__).resolve().parent,
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode == 0:
+            commit = r.stdout.strip()
+    except Exception:  # git absent / not a checkout — best-effort only
+        pass
+    return {
+        "wildseed_version": __version__,
+        "git_commit": commit,
+        "sha256": {
+            "world": _sha256(world),
+            "dem": _sha256(dem),
+            "instances": _sha256(instances),
+        },
+    }
 
 
 def _apply_recolour_variants(models_root: Path, palette: Dict[str, List[str]],

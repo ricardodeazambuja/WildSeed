@@ -23,7 +23,7 @@ def test_different_seed_different_spec():
 
 def test_stage_seeds_are_independent():
     seeds = resolve_scenario(7)["stage_seeds"]
-    assert len(set(seeds.values())) == 3, "spawned stage seeds must not collide"
+    assert len(set(seeds.values())) == 4, "spawned stage seeds must not collide"
 
 
 def test_biome_override_keeps_format_and_knob_envelope():
@@ -116,7 +116,7 @@ def test_max_slope_in_spec_and_consumes_no_rng():
     ka = {k: v for k, v in a["terrain_knobs"].items() if k != "max_mean_slope_deg"}
     kb = {k: v for k, v in b["terrain_knobs"].items() if k != "max_mean_slope_deg"}
     assert ka == kb and a["density"] == b["density"]
-    assert a["scenario_format"] == 3
+    assert a["scenario_format"] == 4
 
 
 # --------------------------------------------------------- vio_lio profile ----
@@ -134,7 +134,8 @@ def test_vio_lio_profile_reproducible_and_well_formed():
     assert a["density"]["grass"] == 0               # grass -> patchy ground texture
     assert a["corridor"]["half_width"] == 8.0 and a["corridor"]["soft"] is True
     assert a["rig"]["z"] == 2.0
-    assert set(a["stage_seeds"]) == {"terraingen", "ground", "placement", "texrand"}
+    assert set(a["stage_seeds"]) == {"terraingen", "ground", "placement",
+                                     "texrand", "sun"}
     assert a["terrain_knobs"]["max_mean_slope_deg"] == 20.0
 
 
@@ -173,7 +174,7 @@ def test_profile_none_path_unchanged():
     from wildseed.core.scenario import resolve_scenario
     s = resolve_scenario(7)
     assert "profile" not in s
-    assert len(s["stage_seeds"]) == 3
+    assert len(s["stage_seeds"]) == 4  # terraingen, ground, placement, sun
 
 
 def test_unknown_profile_raises():
