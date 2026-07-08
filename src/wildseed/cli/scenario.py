@@ -41,8 +41,14 @@ from wildseed.core.scenario import BIOME_NAMES, PROFILE_NAMES, resolve_scenario
               help="Weather preset applied under the master seed (clear, overcast, "
                    "fog, rain, snow, sunglare, or 'random' = seeded draw). "
                    "Unset = no weather stage.")
-@click.option("--biome", type=click.Choice(BIOME_NAMES + ("random",)), default="random",
-              help="Biome (palette + ground + terrain envelope). Default: seed-random.")
+@click.option("--biome", type=str, default="random",
+              help=f"Biome (palette + ground + terrain envelope): one of "
+                   f"{', '.join(BIOME_NAMES)}, a --biome-file name, or 'random' "
+                   "(default: seed-random from the built-ins).")
+@click.option("--biome-file", "biome_file", type=click.Path(exists=True), default=None,
+              help="YAML of custom biome definitions (see docs/EXPERIMENTS.md). "
+                   "Custom biomes are selected explicitly via --biome <name>; "
+                   "they never join the seed-random draw pool.")
 @click.option("--preset", type=click.Choice(PRESET_NAMES + ("random",)), default="random",
               help="Terraingen preset. Default: seed-random from the biome's presets.")
 @click.option("--density-scale", type=float, default=1.0,
@@ -63,7 +69,7 @@ from wildseed.core.scenario import BIOME_NAMES, PROFILE_NAMES, resolve_scenario
 @click.pass_context
 def scenario(ctx, seed, profile, object_density, corridor_width, relief, variety,
              texture, photometric, weather,
-             biome, preset, density_scale, size, pixel_m,
+             biome, biome_file, preset, density_scale, size, pixel_m,
              max_slope_deg, manifest, base_path, dry_run):
     """Generate a complete randomized world from ONE master seed.
 
@@ -90,6 +96,10 @@ def scenario(ctx, seed, profile, object_density, corridor_width, relief, variety
     console = ctx.obj["console"]
 
     try:
+        extra_biomes = biome_prov = None
+        if biome_file:
+            from wildseed.core.biomes import load_biome_file
+            extra_biomes, biome_prov = load_biome_file(Path(biome_file))
         spec = resolve_scenario(
             seed,
             biome=None if biome == "random" else biome,
@@ -99,7 +109,10 @@ def scenario(ctx, seed, profile, object_density, corridor_width, relief, variety
             profile=profile, object_density=object_density,
             corridor_width=corridor_width, relief=relief, variety=variety,
             texture=texture, photometric=photometric, weather=weather,
+            extra_biomes=extra_biomes,
         )
+        if biome_prov:
+            spec["biome_file"] = biome_prov
     except ValueError as e:
         raise click.ClickException(str(e))
 

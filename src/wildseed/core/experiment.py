@@ -28,7 +28,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (BaseModel, ConfigDict, Field, field_validator,
+                      model_validator)
 
 from wildseed.core.scenario import (BIOME_NAMES, PROFILE_NAMES,
                                     resolve_scenario)
@@ -70,6 +71,7 @@ class ExperimentSpec(BaseModel):
         description="Output stem suffix (exp_<name>); default exp_<seed>.")
     profile: Optional[str] = "vio_lio"
     biome: Optional[str] = None
+    biome_file: Optional[str] = None
     preset: Optional[str] = None
     dials: ExperimentDials = Field(default_factory=ExperimentDials)
     weather: Optional[str] = None
@@ -84,12 +86,14 @@ class ExperimentSpec(BaseModel):
                              f"{PROFILE_NAMES} or null")
         return v
 
-    @field_validator("biome")
-    @classmethod
-    def _biome_known(cls, v):
-        if v is not None and v not in BIOME_NAMES:
-            raise ValueError(f"unknown biome {v!r}; expected one of {BIOME_NAMES}")
-        return v
+    @model_validator(mode="after")
+    def _biome_known(self):
+        # with a biome_file the name may be custom; resolve validates it then
+        if (self.biome is not None and self.biome_file is None
+                and self.biome not in BIOME_NAMES):
+            raise ValueError(f"unknown biome {self.biome!r}; expected one of "
+                             f"{BIOME_NAMES} (or set biome_file)")
+        return self
 
     @field_validator("benchmark")
     @classmethod
@@ -133,6 +137,10 @@ def resolve_experiment(spec: ExperimentSpec) -> dict:
         seed=spec.seed, biome=spec.biome, preset=spec.preset,
         profile=spec.profile, photometric=dials.photometric,
         weather=spec.weather)
+    biome_prov = None
+    if spec.biome_file:
+        from wildseed.core.biomes import load_biome_file
+        kwargs["extra_biomes"], biome_prov = load_biome_file(Path(spec.biome_file))
     if dials.structure is not None:
         kwargs["object_density"] = int(round(STRUCTURE_BUDGET * dials.structure))
     if dials.texture is not None:
@@ -158,4 +166,6 @@ def resolve_experiment(spec: ExperimentSpec) -> dict:
         "overrides": dict(spec.overrides),
         "benchmark": list(spec.benchmark),
     }
+    if biome_prov:
+        resolved["biome_file"] = biome_prov
     return resolved

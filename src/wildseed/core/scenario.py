@@ -198,8 +198,14 @@ def resolve_scenario(
         texture: float = 1.0,
         photometric: Optional[float] = None,
         weather: Optional[str] = None,
+        extra_biomes: Optional[Dict[str, dict]] = None,
 ) -> dict:
     """Deterministically resolve a master seed into a full scenario spec.
+
+    ``extra_biomes`` (from core.biomes.load_biome_file) extends the biome
+    LOOKUP only — custom biomes never join the seed-random draw pool (that
+    would shift every existing seed->biome mapping); select them explicitly
+    via ``biome=<name>``.
 
     Same (seed, biome, preset, density_scale, size, pixel_m) -> identical spec.
     Explicit biome/preset overrides don't consume different draw counts for the
@@ -224,7 +230,8 @@ def resolve_scenario(
             seed, biome=biome, preset=preset, size=size, pixel_m=pixel_m,
             max_slope_deg=max_slope_deg, object_density=object_density,
             corridor_width=corridor_width, relief=relief, variety=variety,
-            texture=texture, photometric=photometric, weather=weather)
+            texture=texture, photometric=photometric, weather=weather,
+            extra_biomes=extra_biomes)
 
     ss = np.random.SeedSequence(seed)
     param_ss, tg_ss, ground_ss, place_ss = ss.spawn(4)
@@ -236,9 +243,11 @@ def resolve_scenario(
 
     drawn_biome = BIOME_NAMES[int(rng.integers(len(BIOME_NAMES)))]
     use_biome = biome or drawn_biome
-    if use_biome not in BIOME_SPACE:
-        raise ValueError(f"unknown biome {use_biome!r}; expected one of {BIOME_NAMES}")
-    space = BIOME_SPACE[use_biome]
+    lookup = dict(BIOME_SPACE, **(extra_biomes or {}))
+    if use_biome not in lookup:
+        raise ValueError(f"unknown biome {use_biome!r}; expected one of "
+                         f"{tuple(sorted(lookup))}")
+    space = lookup[use_biome]
 
     presets = space["presets"]
     drawn_preset = presets[int(rng.integers(len(presets)))]
@@ -281,6 +290,7 @@ def resolve_scenario(
         "terrain_knobs": knobs,
         "density": density,
         "rows": rows,
+        "palette_source": space.get("palette_source"),
         "photometric": photometric_block,
         "weather": weather_name,
         "stage_seeds": {
@@ -306,6 +316,7 @@ def _resolve_vio_lio(
         texture: float = 1.0,
         photometric: Optional[float] = None,
         weather: Optional[str] = None,
+        extra_biomes: Optional[Dict[str, dict]] = None,
 ) -> dict:
     """Resolve the measured VIO/LIO recipe from a master seed.
 
@@ -345,9 +356,11 @@ def _resolve_vio_lio(
     # plantations are the aliasing worst-case, not this recipe's intent).
     drawn_biome = WILD_BIOMES[int(rng.integers(len(WILD_BIOMES)))]
     use_biome = biome or drawn_biome
-    if use_biome not in BIOME_SPACE:
-        raise ValueError(f"unknown biome {use_biome!r}; expected one of {BIOME_NAMES}")
-    space = BIOME_SPACE[use_biome]
+    lookup = dict(BIOME_SPACE, **(extra_biomes or {}))
+    if use_biome not in lookup:
+        raise ValueError(f"unknown biome {use_biome!r}; expected one of "
+                         f"{tuple(sorted(lookup))}")
+    space = lookup[use_biome]
     use_preset = preset or "flat"
 
     # Drivable macro with fine relief: gentle amplitude (relief knob) kept under
@@ -396,6 +409,7 @@ def _resolve_vio_lio(
         "texture": texture,
         "variant_count": variant_count,
         "rig": {"z": 2.0},
+        "palette_source": space.get("palette_source"),
         "photometric": photometric_block,
         "weather": weather_name,
         "stage_seeds": {
@@ -493,7 +507,18 @@ def run_scenario(
         write_basin_water_models(base_path / "models", lakes)
 
     # 3b. profile extras: recolour variants (uniqueness) + steered corridor map.
-    palette = palette_from_manifest(manifest_path, spec["biome"])
+    # Custom biomes (core.biomes) carry a palette_source: an explicit id list,
+    # or the name of a manifest biome to borrow the palette from.
+    psrc = spec.get("palette_source") or {}
+    if psrc.get("explicit"):
+        exp_pal = psrc["explicit"]
+        palette = {"tree": list(exp_pal.get("trees", [])),
+                   "bush": list(exp_pal.get("bushes", [])),
+                   "grass": list(exp_pal.get("grasses", [])),
+                   "rock": list(exp_pal.get("rocks", []))}
+    else:
+        palette = palette_from_manifest(
+            manifest_path, psrc.get("manifest_biome") or spec["biome"])
     density_maps = None
     corridor_png = None
     rig_config = rig_pose = None
