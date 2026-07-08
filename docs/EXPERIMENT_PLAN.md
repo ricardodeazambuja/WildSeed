@@ -112,6 +112,31 @@ If the night runs short this phase ships as design + schema only.
 - G4 (Phase 4): two consecutive full builds of the same spec produce identical
   world hashes (in-container check).
 
+## Deferred axes — designed, not built (next session's Phase 1)
+
+Two goal-item-2 axes need more than a night; recording the design so they
+start from a decision, not a blank page:
+
+**Dynamics (static-world violation).** Dial = fraction-of-view-in-motion.
+Mechanism: N distractor models on seeded waypoint loops driven by a tiny
+world plugin (gz TrajectoryFollower or pose-publisher script via
+`wildseed fly`-style kinematics; NO physics wrenches — kinematic movers keep
+RTF flat and trajectories byte-reproducible). GT channel: per-instance
+velocity + track in `instances.json` (FORMAT 3) and per-frame 2D motion
+masks derivable from the segmentation camera (moving ids are known). Metric:
+vio_bench gains a `--dynamic-frac` report column = fraction of putative
+matches landing on moving-class pixels; validate = ATE with/without motion
+masks in the reference estimator. Gate: the dial must degrade E-matrix
+inlier_ratio monotonically at fixed structure.
+
+**Sensor randomization (calibration-error robustness).** Not a world axis —
+a RIG config transform. `wildseed rig --randomize <dial> --seed N` perturbs:
+IMU noise density/bias walk (gz `<imu><noise>`), camera intrinsics (fx,fy,
+cx,cy ± dial·1%), extrinsic mount pose (± dial·[mm, mrad]). The TRUE drawn
+values go into `rig_calibration.json` next to the model (clean test = feed
+estimator truth; robustness test = feed nominal). Gate: mismatch dial must
+grow validate-ATE monotonically while the clean run stays flat.
+
 ## Risk register
 
 - GPU benches are minutes-each → sweeps sized small (3–5 points × 1 seed).
