@@ -139,7 +139,10 @@ def run_sweep(spec: ExperimentSpec, axis: str, values: List[float],
     if bad:
         raise ValueError(f"unknown benchmark(s) {bad}; expected from {BENCH_NAMES}")
     base_path = Path(base_path)
-    out_dir = Path(out_dir) if out_dir else base_path / "runs" / f"sweep_{experiment_stem(spec)}"
+    # axis in the default dir name: sweeps of different axes from one spec
+    # must not overwrite each other's reports
+    out_dir = (Path(out_dir) if out_dir
+               else base_path / "runs" / f"sweep_{experiment_stem(spec)}_{axis}")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     conditions = sweep_conditions(spec, axis, values, seeds)

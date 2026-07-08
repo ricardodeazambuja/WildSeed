@@ -79,7 +79,7 @@ wildseed sweep --spec exp_lowsun.yaml --axis structure --values 0,0.35,0.7 \
 
 Each condition is built and benchmarked immediately (worlds share `models/`,
 so the loop is sequential; a world's benches run while its models are
-current). Results land in `runs/sweep_exp_<name>/`:
+current). Results land in `runs/sweep_exp_<name>_<axis>/`:
 
 - `report.md` — the ladder, one row per (value × seed): inliers/pair,
   ratio_reject, verdict, lidar ring roughness, rtf_min, build time, world
