@@ -121,16 +121,26 @@ Two goal-item-2 axes need more than a night; recording the design so they
 start from a decision, not a blank page:
 
 **Dynamics (static-world violation).** Dial = fraction-of-view-in-motion.
-Mechanism: N distractor models on seeded waypoint loops driven by a tiny
-world plugin (gz TrajectoryFollower or pose-publisher script via
-`wildseed fly`-style kinematics; NO physics wrenches — kinematic movers keep
-RTF flat and trajectories byte-reproducible). GT channel: per-instance
-velocity + track in `instances.json` (FORMAT 3) and per-frame 2D motion
-masks derivable from the segmentation camera (moving ids are known). Metric:
-vio_bench gains a `--dynamic-frac` report column = fraction of putative
-matches landing on moving-class pixels; validate = ATE with/without motion
-masks in the reference estimator. Gate: the dial must degrade E-matrix
-inlier_ratio monotonically at fixed structure.
+ARCHITECTURE DECISION (2026-07-08, sharpened while closing the session):
+vio_bench is a *static-scene* benchmark by construction (one world, N
+cameras, one gz session) — scene motion is invisible to it. The dynamics
+axis therefore lives on the RECORDING path: `wildseed record --distractors
+<dial> --seed N` spawns seeded distractor models and drives them during the
+flight through the same set_pose transport `fly` already uses for the rig
+(verified machinery; kinematic movers keep RTF flat and trajectories
+byte-reproducible; NO physics wrenches, no gz actors). GT channel:
+per-instance waypoint tracks + velocities in the dataset alongside the
+existing GT streams; per-frame 2D motion masks derivable from the
+segmentation camera (moving instance ids are known). Metric: KLT/match
+outlier fraction on the recorded sequence + `benchmark validate` ATE
+with/without motion masks. Gate: the dial must degrade sequence-level
+inlier_ratio / grow maskless ATE monotonically at fixed structure.
+
+**Distributions over ranges (curricula).** Sweeps take explicit value grids;
+training curricula want dials *sampled* from declared distributions per
+world. Design: spec dials accept `{dist: normal|uniform|beta, params: ...}`
+resolved through the master seed; a `--count N` batch mode emits N sampled
+specs + a manifest. Deferred with dynamics.
 
 **Sensor randomization (calibration-error robustness).** Not a world axis —
 a RIG config transform. `wildseed rig --randomize <dial> --seed N` perturbs:
