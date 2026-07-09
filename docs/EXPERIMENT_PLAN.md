@@ -25,7 +25,12 @@
       tests, CI workflow, G4 MEASURED (identical condition in two separate
       container runs → identical world sha256)
 - [x] Phase 5 — extensibility: user-YAML biomes under the contract
-- [ ] Wrap-up — docs (EXPERIMENTS.md), README trail, morning report
+- [x] Wrap-up — docs (EXPERIMENTS.md), README trail, morning report
+- [x] Session 2 (2026-07-08/09) — deferred axes closed: curricula
+      (distribution dials + `--count`), dynamics (`record --distractors`,
+      GT tracks + label-8 motion masks), calibration gate measured
+      (`vio_validate --calib`). Both new gates = honest negatives for the
+      reference probe; machinery + GT channels verified (docs/EXPERIMENTS.md)
 
 ## Design decisions (locked unless evidence overturns them)
 
