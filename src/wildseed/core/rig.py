@@ -25,6 +25,10 @@ from pydantic import BaseModel, Field
 CLASS_LABELS = {
     "tree": 1, "bush": 2, "rock": 3, "grass": 4, "sand": 5,
     "ground": 6, "water": 7,
+    # runtime-spawned kinematic movers (`wildseed record --distractors`):
+    # a DEDICATED class so per-frame motion masks are a plain label==8 test
+    # on the segmentation stream, no instance bookkeeping needed.
+    "distractor": 8,
 }
 
 

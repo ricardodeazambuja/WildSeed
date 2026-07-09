@@ -4,10 +4,14 @@ One run = one directory under ``runs/``:
 
     manifest.json          seed, pattern, world, mode, stream counts
     trajectory.json        the exact flight (copied before takeoff)
+    distractors.json       (--distractors) commanded mover tracks + velocities
     video.mp4              cam frames encoded at the measured capture rate
     frames/                numbered PNGs (kept with --keep-frames or --dataset)
     dataset/               (--dataset) lidar_XXXXXX.npz, imu.csv, navsat.csv,
-                           groundtruth.txt (TUM: t x y z qx qy qz qw)
+                           groundtruth.txt (TUM: t x y z qx qy qz qw),
+                           seg_XXXXXX.png + seg.csv (raw segmentation
+                           labels_map frames; class label in channel 2 —
+                           distractor movers are label 8)
 
 Subscribers run on gz-transport callback threads; callbacks only enqueue/write
 cheap work. Timestamps are SIM time from message headers throughout — the
@@ -46,6 +50,7 @@ class RunRecorder:
         self.active = False
         self.counts: Dict[str, int] = {}
         self._frame_times = []
+        self._seg_times = []
         self._frame_queue = []   # drained by a writer thread, not callbacks
         self._writer = None
         self._imu_rows = []
@@ -59,10 +64,15 @@ class RunRecorder:
             if done >= len(self._frame_queue):
                 time.sleep(0.02)
                 continue
-            i, h, w, data = self._frame_queue[done]
+            kind, i, h, w, data = self._frame_queue[done]
             img = np.frombuffer(data, dtype=np.uint8)[: h * w * 3].reshape(h, w, 3)
-            cv2.imwrite(str(self.frames_dir / f"frame_{i:06d}.png"),
-                        img[:, :, ::-1])
+            if kind == "cam":
+                cv2.imwrite(str(self.frames_dir / f"frame_{i:06d}.png"),
+                            img[:, :, ::-1])
+            else:
+                # raw message bytes, NO channel swap: imwrite/imread round-trip
+                # the array exactly, so channel 2 stays the class label
+                cv2.imwrite(str(self.dataset_dir / f"seg_{i:06d}.png"), img)
             self._frame_queue[done] = None   # free the bytes as we go
             done += 1
 
@@ -74,9 +84,17 @@ class RunRecorder:
         if not self.active:
             return
         i = self.counts.get("frames", 0)
-        self._frame_queue.append((i, m.height, m.width, bytes(m.data)))
+        self._frame_queue.append(("cam", i, m.height, m.width, bytes(m.data)))
         self._frame_times.append(_stamp(m.header))
         self.counts["frames"] = i + 1
+
+    def _seg_cb(self, m):
+        if not (self.active and self.dataset):
+            return
+        i = self.counts.get("segmentation", 0)
+        self._frame_queue.append(("seg", i, m.height, m.width, bytes(m.data)))
+        self._seg_times.append(_stamp(m.header))
+        self.counts["segmentation"] = i + 1
 
     def _lidar_cb(self, m):
         if not (self.active and self.dataset):
@@ -144,8 +162,11 @@ class RunRecorder:
             self._node.subscribe(NavSat, f"{p}/navsat", self._navsat_cb)
             self._node.subscribe(Odometry, f"/model/{self.model}/odometry",
                                  self._odom_cb)
+            self._node.subscribe(Image, f"{p}/segmentation/labels_map",
+                                 self._seg_cb)
             self._topics += [f"{p}/lidar/points", f"{p}/imu", f"{p}/navsat",
-                             f"/model/{self.model}/odometry"]
+                             f"/model/{self.model}/odometry",
+                             f"{p}/segmentation/labels_map"]
         self.active = True
         import threading
         self._writer = threading.Thread(target=self._writer_loop, daemon=True)
@@ -175,6 +196,12 @@ class RunRecorder:
                 for i, t in enumerate(self._frame_times):
                     w.writerow([i, f"{t:.6f}"])
         if self.dataset:
+            if self._seg_times:
+                with open(self.dataset_dir / "seg.csv", "w", newline="") as f:
+                    w = csv.writer(f)
+                    w.writerow(["idx", "t"])
+                    for i, t in enumerate(self._seg_times):
+                        w.writerow([i, f"{t:.6f}"])
             with open(self.dataset_dir / "imu.csv", "w", newline="") as f:
                 w = csv.writer(f)
                 w.writerow(["t", "ax", "ay", "az", "wx", "wy", "wz",
@@ -221,13 +248,20 @@ def encode_video(frames_dir: Path, out_path: Path, fps: float) -> Optional[Path]
 def record_run(traj: Dict, run_dir: Path, world: str = "forest_world",
                model: str = "sensor_rig", topic_prefix: str = "rig",
                dataset: bool = False, keep_frames: bool = False,
-               mode: str = "kinematic") -> Dict:
+               mode: str = "kinematic",
+               distractors: Optional[Dict] = None) -> Dict:
     """Fly ``traj`` against a RUNNING server while recording; returns summary.
 
     The trajectory (with its mode) is copied into the run dir before takeoff,
     so the run is reproducible and datasets can never lose the provenance of
     their IMU validity: kinematic (set_pose) flight has garbage IMU; dynamic
     (PD wrench) flight has physics-consistent IMU.
+
+    ``distractors`` (a plan from core.distract.synthesize_distractors) spawns
+    seeded kinematic movers into the running world and drives them during the
+    flight — the dynamics axis. The plan is copied to distractors.json and
+    the driver's sim-time epoch lands in the manifest, so mover ground truth
+    aligns with every sim-stamped stream.
     """
     from wildseed.core.fly import fly_dynamic, play_trajectory
 
@@ -236,17 +270,30 @@ def record_run(traj: Dict, run_dir: Path, world: str = "forest_world",
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "trajectory.json").write_text(json.dumps(traj, indent=1))
 
+    driver = None
+    if distractors and distractors.get("count"):
+        from wildseed.core.distract import DistractorDriver
+        (run_dir / "distractors.json").write_text(
+            json.dumps(distractors, indent=1))
+        driver = DistractorDriver(distractors, world=world)
+        spawned = driver.spawn()
+        logger.info(f"distractors: {spawned}/{distractors['count']} spawned")
+
     rec = RunRecorder(run_dir, topic_prefix=topic_prefix, model=model,
                       dataset=dataset)
     rec.start()
     tracking = None
     try:
+        if driver is not None:
+            driver.start()
         if mode == "dynamic":
             tracking = fly_dynamic(traj, world=world, model=model)
             calls = tracking.pop("cycles")
         else:
             calls = play_trajectory(traj, world=world, model=model)
     finally:
+        if driver is not None:
+            driver.stop()
         rec.stop()
 
     fps = rec.measured_fps()
@@ -269,5 +316,12 @@ def record_run(traj: Dict, run_dir: Path, world: str = "forest_world",
     }
     if tracking:
         summary["tracking"] = tracking
+    if driver is not None:
+        summary["distractors"] = {
+            "count": distractors["count"], "dial": distractors["dial"],
+            "seed": distractors["seed"], "label": distractors["label"],
+            "t0_sim": driver.t0_sim, "pose_ticks": driver.ticks,
+            "pose_acks": driver.acks,
+        }
     (run_dir / "manifest.json").write_text(json.dumps(summary, indent=1))
     return summary
