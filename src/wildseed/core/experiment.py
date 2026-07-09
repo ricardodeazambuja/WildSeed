@@ -25,8 +25,9 @@ were measured); photometric/weather apply on both the profile and biome paths.
 
 import inspect
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
+import numpy as np
 import yaml
 from pydantic import (BaseModel, ConfigDict, Field, field_validator,
                       model_validator)
@@ -44,19 +45,83 @@ BENCH_NAMES = ("vio", "lidar", "rtf")
 
 _PROFILE_DIALS = ("structure", "texture", "relief", "variety")
 
+# sampler stream tag (curricula): keeps dial sampling on its own SeedSequence
+# family, disjoint from every world stage stream by construction.
+_SAMPLE_TAG = 0xD1A1_5EED
 
-class ExperimentDials(BaseModel):
-    """Stressor dials, all 0..1, all optional (unset = pipeline default)."""
+
+class DialDist(BaseModel):
+    """A distribution over a dial — sampled per world through the master seed.
+
+    Written in a spec as ``structure: {dist: beta, params: [2, 5]}``. Params:
+    uniform [lo, hi] (both in [0,1]), normal [mean, sigma] (draw clipped to
+    [0,1]; the clip is part of the definition), beta [a, b] (a,b > 0).
+    """
     model_config = ConfigDict(extra="forbid")
 
-    structure: Optional[float] = Field(None, ge=0.0, le=1.0)
-    texture: Optional[float] = Field(None, ge=0.0, le=1.0)
-    relief: Optional[float] = Field(None, ge=0.0, le=1.0)
-    variety: Optional[float] = Field(None, ge=0.0, le=1.0)
-    photometric: Optional[float] = Field(None, ge=0.0, le=1.0)
+    dist: Literal["uniform", "normal", "beta"]
+    params: List[float]
+
+    @model_validator(mode="after")
+    def _params_valid(self):
+        p = self.params
+        if len(p) != 2:
+            raise ValueError(f"{self.dist} needs exactly 2 params, got {p}")
+        if self.dist == "uniform":
+            lo, hi = p
+            if not (0.0 <= lo <= hi <= 1.0):
+                raise ValueError(f"uniform params must satisfy 0 <= lo <= hi <= 1, got {p}")
+        elif self.dist == "normal":
+            mean, sigma = p
+            if not 0.0 <= mean <= 1.0:
+                raise ValueError(f"normal mean must be in [0,1], got {mean}")
+            if sigma <= 0.0:
+                raise ValueError(f"normal sigma must be > 0, got {sigma}")
+        else:  # beta
+            a, b = p
+            if a <= 0.0 or b <= 0.0:
+                raise ValueError(f"beta params must be > 0, got {p}")
+        return self
+
+    def sample(self, rng: np.random.Generator) -> float:
+        if self.dist == "uniform":
+            return float(rng.uniform(self.params[0], self.params[1]))
+        if self.dist == "normal":
+            return float(np.clip(rng.normal(self.params[0], self.params[1]),
+                                 0.0, 1.0))
+        return float(rng.beta(self.params[0], self.params[1]))
+
+
+DialValue = Union[float, DialDist]
+
+
+class ExperimentDials(BaseModel):
+    """Stressor dials, all optional: a literal 0..1 float, or a DialDist to be
+    sampled per world (``wildseed experiment --count N``)."""
+    model_config = ConfigDict(extra="forbid")
+
+    structure: Optional[DialValue] = None
+    texture: Optional[DialValue] = None
+    relief: Optional[DialValue] = None
+    variety: Optional[DialValue] = None
+    photometric: Optional[DialValue] = None
+
+    @field_validator("*")
+    @classmethod
+    def _float_in_range(cls, v, info):
+        if isinstance(v, (int, float)) and not 0.0 <= float(v) <= 1.0:
+            raise ValueError(f"{info.field_name} must be in [0,1], got {v}")
+        return v
 
     def set_items(self) -> Dict[str, float]:
-        return {k: v for k, v in self.model_dump().items() if v is not None}
+        """Concrete (literal float) dials only."""
+        return {k: float(getattr(self, k)) for k in type(self).model_fields
+                if isinstance(getattr(self, k), (int, float))}
+
+    def dist_items(self) -> Dict[str, DialDist]:
+        """Distribution-valued dials (must be sampled before resolving)."""
+        return {k: getattr(self, k) for k in type(self).model_fields
+                if isinstance(getattr(self, k), DialDist)}
 
 
 class ExperimentSpec(BaseModel):
@@ -135,6 +200,11 @@ def resolve_experiment(spec: ExperimentSpec) -> dict:
     dial-controlled knob wins and is visible in the record).
     """
     dials = spec.dials
+    unsampled = dials.dist_items()
+    if unsampled:
+        raise ValueError(
+            f"dials {sorted(unsampled)} are distributions, not values; sample "
+            f"them first: `wildseed experiment --spec <spec> --count N`")
     profile_set = {k: v for k, v in dials.set_items().items()
                    if k in _PROFILE_DIALS}
     if spec.profile is None and profile_set:
@@ -178,3 +248,84 @@ def resolve_experiment(spec: ExperimentSpec) -> dict:
     if biome_prov:
         resolved["biome_file"] = biome_prov
     return resolved
+
+
+def sample_experiments(spec: ExperimentSpec, count: int) -> List[dict]:
+    """Draw ``count`` concrete specs from a spec with distribution dials.
+
+    Deterministic in (spec, count) and APPEND-SAFE in count (D1 principle at
+    the sampling level): sample i comes from child i of
+    ``SeedSequence((_SAMPLE_TAG, spec.seed))``, so growing a curriculum from
+    N to M worlds leaves the first N samples byte-identical.
+
+    Each sample draws (in fixed order) its own world seed, then one value per
+    distribution dial in field order; literal dials pass through unchanged.
+    Works with zero distribution dials too — then it's a seeded replicate
+    batch (same dials, fresh world seeds).
+    """
+    if count < 1:
+        raise ValueError(f"count must be >= 1, got {count}")
+    dist_dials = spec.dials.dist_items()
+    children = np.random.SeedSequence((_SAMPLE_TAG, spec.seed)).spawn(count)
+    samples = []
+    for i, child in enumerate(children):
+        rng = np.random.default_rng(child)
+        world_seed = int(rng.integers(0, 2 ** 31 - 1))
+        drawn = {}
+        for field in ExperimentDials.model_fields:      # fixed draw order
+            dist = dist_dials.get(field)
+            if dist is not None:
+                drawn[field] = round(dist.sample(rng), 4)
+        s = spec.model_copy(deep=True)
+        s.seed = world_seed
+        s.name = f"{spec.name or spec.seed}-k{i:03d}"
+        for k, v in drawn.items():
+            setattr(s.dials, k, v)
+        samples.append({
+            "index": i, "name": s.name, "stem": experiment_stem(s),
+            "seed": world_seed, "drawn_dials": drawn,
+            "dials": s.dials.set_items(), "spec": s,
+        })
+    return samples
+
+
+def write_samples(spec: ExperimentSpec, count: int, out_dir: Path,
+                  source: Optional[str] = None) -> dict:
+    """Write ``count`` sampled spec YAMLs + ``samples.yaml`` manifest.
+
+    Returns the manifest dict (with a ``files`` list of written spec paths).
+    Each sampled spec is a plain, self-sufficient experiment spec —
+    buildable with ``wildseed experiment --spec`` — and the manifest records
+    the distribution definitions plus every drawn value, so the whole batch
+    regenerates from the source spec alone.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    samples = sample_experiments(spec, count)
+    files = []
+    for s in samples:
+        data = s["spec"].model_dump(exclude_none=True)
+        data["dials"] = s["spec"].dials.set_items()   # drop the None dials
+        header = (f"# sampled {s['index'] + 1}/{count} from "
+                  f"{source or 'spec'} (master seed {spec.seed}) — "
+                  "regenerate with `wildseed experiment --count`\n")
+        path = out_dir / f"{s['stem']}.yaml"
+        path.write_text(header + yaml.safe_dump(data, sort_keys=False))
+        files.append(str(path))
+    manifest = {
+        "format": 1,
+        "experiment": experiment_stem(spec),
+        "hypothesis": spec.hypothesis,
+        "master_seed": spec.seed,
+        "count": count,
+        "source_spec": source,
+        "dist_dials": {k: v.model_dump()
+                       for k, v in spec.dials.dist_items().items()},
+        "samples": [{k: s[k] for k in
+                     ("index", "name", "stem", "seed", "drawn_dials", "dials")}
+                    for s in samples],
+        "files": files,
+    }
+    (out_dir / "samples.yaml").write_text(
+        yaml.safe_dump(manifest, sort_keys=False))
+    return manifest

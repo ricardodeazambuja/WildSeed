@@ -66,6 +66,42 @@ it — `photometric`/`weather` also work on the plain biome path with
 `scenario` knobs, recorded verbatim, win over dials), `benchmark` (default
 bench list for sweeps).
 
+## Curricula: distributions over dials
+
+Sweeps take explicit value grids; training curricula want dials *sampled*
+from declared distributions per world. Any dial can be a distribution instead
+of a literal:
+
+```yaml
+# curriculum.yaml
+hypothesis: "A structure/photometric curriculum spans easy->failure"
+seed: 42
+name: cur
+dials:
+  structure: {dist: beta, params: [2, 5]}      # skewed toward sparse worlds
+  photometric: {dist: normal, params: [0.5, 0.3]}  # drawn value clipped to [0,1]
+  texture: 1.0                                  # literals mix freely
+```
+
+Supported: `uniform [lo, hi]`, `normal [mean, sigma]` (draw clipped to
+[0,1] — the clip is part of the definition), `beta [a, b]`.
+
+A distribution spec cannot build directly — sample it:
+
+```bash
+wildseed experiment --spec curriculum.yaml --count 20
+```
+
+writes 20 concrete specs (`exp_cur-k000.yaml` …) plus a `samples.yaml`
+manifest recording the distributions and every drawn value. Sampling runs
+through the master seed on its own `SeedSequence` stream and is
+**append-safe in count**: growing a curriculum from 20 to 100 worlds leaves
+the first 20 samples byte-identical. Each sample draws its own world seed
+(recorded), so the batch varies world *and* stress; a spec with zero
+distribution dials still samples — that's a seeded replicate batch. Every
+sampled spec is a plain experiment spec: build it, sweep it, or hand the
+whole directory to a training loop.
+
 ## Sweeps → difficulty ladders
 
 ```bash
