@@ -218,15 +218,96 @@ previous run's cached frames. Both fixed — stale captures are now purged and
 an empty capture aborts loudly. If you benchmarked a weather world before
 2026-07-08, re-run it.)*
 
+## The dynamics axis: moving distractors on the record path
+
+Scene motion violates the static-world assumption every VIO/SLAM formulation
+leans on — and it is invisible to `benchmark vio` (a static-scene probe by
+construction), so this axis lives on the RECORDING path:
+
+```bash
+# inside wildseed:egl, next to a running rig world
+wildseed record -p flythrough --seed 3 --mode dynamic --dataset \
+    --keep-frames --distractors 0.5
+# score the dataset with / without motion masks
+python3 tools/vio_validate.py runs/<run> --mask-label 8
+```
+
+`--distractors <dial>` spawns `round(16·dial)` seeded movers (bush/rock
+models) into the running world and drives them across the camera's path —
+world file untouched, commanded tracks + velocities in `distractors.json`,
+segmentation class label 8 for per-frame motion masks. Mechanics + gotchas in
+[SENSOR_RIG.md](SENSOR_RIG.md). **Always record with `--mode dynamic`** — see
+the confound below.
+
+### dynamics — measured: real per-frame contamination, robust-probe NEGATIVE
+
+Ladder on the recipe world (structure 0.7, texture 1.0, seed 42; dynamic-mode
+flythrough seed 3, AGL 6 m, ~577 m path; flight quality identical across
+rungs — PD tracking error 0.116–0.119 m mean):
+
+| dial | movers | in-motion view frac (mean/max) | VIO inliers (no mask) | VIO inliers (masked) | VIO seg drift | LIO ATE |
+|---|---|---|---|---|---|---|
+| 0.0 | 0 | 0 / 0 | 0.539 | — | 3.34 m | 106.8 m |
+| 0.5 | 8 | 1.1% / 24% | 0.521 | 0.546 | 3.44 m | 106.3 m |
+| 1.0 | 16 | 2.1% / 25% | 0.551 | 0.549 | 3.47 m | 106.5 m |
+
+The dial scales real image-space motion (label-8 view fraction: 0 → 1.1% →
+2.1% mean), and during crossings the movers *dominate the detector* — in
+crossing frames 62–84% of all ORB keypoints sit on a mover (measured on the
+kinematic pilot), and `--mask-label 8` provably removes them. Yet the
+sequence-level metrics of the reference estimator do not move — not even
+event-locally (dial 1.0 crossing steps: 0.549 inlier fraction vs 0.553 on
+clean steps). Physics: a per-frame-pair E-matrix probe with RANSAC is
+*inherently robust* to transient minority motion — mover matches fall out as
+outliers without dragging the model, and the flight passes each crossing in
+2–4 s, so the contamination duty cycle stays low. **This is the same shape
+of negative result as the photometric sun dial: the stress is real and
+rendered, but the probe is the wrong victim.** Full VIO/VSLAM systems — with
+temporal feature tracks, sliding windows, and maps — are exactly the systems
+dynamic objects corrupt; this axis exists to hand them reproducible motion +
+per-instance GT tracks + pixel motion masks, and those deliverables are
+verified.
+
+**The confound that would have faked a positive:** the first (kinematic)
+ladder showed inliers collapsing 0.48 → 0.27 along the dial — but the
+degradation was GLOBAL (steps with no mover in view: 0.221 vs 0.479
+baseline), and per-frame-pair GT displacement showed why: the mover driver's
+service traffic contends with kinematic playback's own `set_pose`, stuttering
+the *flight* (p95 pair displacement 1.98 → 3.06 m). Motion-masking can't fix
+a jerky camera, which is the tell that separated the artifact from the axis.
+Dynamic (wrench-topic) flight removes the contention entirely — hence the
+`--mode dynamic` rule.
+
 ## The instrument axis: calibration randomization
 
 Calibration error is an *instrument* property, not world state, so it lives
 on the rig: `wildseed rig --calib <dial> --calib-seed N` perturbs mount
-extrinsics, camera fx, and IMU noise, exporting the true drawn values to
+extrinsics (5 mm / 0.3° σ at dial 1), camera FOV→fx (1% σ), and IMU noise
+(4·dial² × a MEMS baseline), exporting the true drawn values to
 `rig_calibration.json` (see [SENSOR_RIG.md](SENSOR_RIG.md)). Clean test =
-give your estimator the truth; robustness test = give it the nominals. The
-remaining goal axis — dynamics (moving distractors + GT motion masks) — is
-designed in [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) (deferred axes).
+give your estimator the truth (`vio_validate --calib <json>`); robustness
+test = give it the nominals (default).
+
+### calibration — measured: ≤1.4% fx mismatch is invisible to the reference probe
+
+Kinematic flythrough (seed 3, AGL 6) per rung on the recipe world, calib-seed
+7 (a representative ~1σ draw: fx_true +0.68% at dial 0.5, +1.37% at 1.0):
+
+| dial | fx true (nominal 585.8) | nominal-fed seg drift | truth-fed seg drift | nominal-fed inliers |
+|---|---|---|---|---|
+| 0.0 | 585.8 | 6.65 m | (same) | 0.484 |
+| 0.5 | 589.7 (+0.68%) | 6.68 m | 6.50 m | 0.498 |
+| 1.0 | 593.8 (+1.37%) | 6.41 m | 6.36 m | 0.480 |
+
+The paired truth-vs-nominal contrast is within noise at every rung: a ≲1.4%
+fx error is beneath what monocular per-pair VO (GT-scaled) can feel, the
+mount perturbations are absorbed by the SE3 alignment every ATE metric
+performs, and the injected IMU noise is invisible to an estimator that never
+reads the IMU. Another honest negative **for the reference probe** — the
+axis's real audience is camera-IMU VIO, where a 0.3° mount error or a 4×
+IMU-noise mismatch between config and instrument is a first-order effect.
+The machinery those tests need (perturbed-instrument SDF + true-values
+export + truth-fed scoring path) is delivered and verified end to end.
 
 ## See also
 

@@ -172,7 +172,7 @@ robot with no segmentation camera, inject with `wildseed rig --inject <world>
 - **[docs/DOMAIN_RANDOMIZATION.md](docs/DOMAIN_RANDOMIZATION.md)** — texture / weather / layout randomization for perception training
 
 *Sensors & perception (VIO / LIO)*
-- **[docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)** — **hypothesis-driven worlds**: the `experiment` spec (stressor dials mapped to measured failure modes), `sweep` difficulty ladders, custom biomes under the testing contract
+- **[docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)** — **hypothesis-driven worlds**: the `experiment` spec (stressor dials mapped to measured failure modes), distribution-sampled curricula (`--count`), `sweep` difficulty ladders, the dynamics (moving-distractor) and calibration axes with their measured gates, custom biomes under the testing contract
 - **[docs/SENSOR_RIG.md](docs/SENSOR_RIG.md)** — the flying sensor rig: cameras, GPU-lidar, IMU, GPS, semantic labels (`rig` / `fly` / `record`)
 - **[docs/VIO_LIO_FEATURES.md](docs/VIO_LIO_FEATURES.md)** — **build & tune VIO/LIO-friendly worlds**: the one-command `scenario --profile vio_lio` recipe, the uniqueness knobs, and the `benchmark` measure→tune loop
 - **[docs/VIO_BENCH.md](docs/VIO_BENCH.md)** — how the camera data-association benchmark works (why *aliasing*, not feature count, predicts VIO failure)
@@ -276,6 +276,18 @@ Common pitfalls and how to avoid each — worth reading before running the demo 
   mapped to a measured VIO/LIO failure mode) + a hypothesis into one
   hash-stamped reproducible world; `wildseed sweep` grades a dial into a
   benchmarked difficulty ladder ([docs](docs/EXPERIMENTS.md))
+- **Curricula**: spec dials can be *distributions* (`{dist: beta, params: [2,5]}`);
+  `wildseed experiment --count N` samples N concrete specs + a manifest through
+  the master seed, append-safe in N ([docs](docs/EXPERIMENTS.md))
+- **Dynamic Scenes**: `wildseed record --distractors <0..1>` spawns seeded
+  kinematic movers through the camera's view during a recording — the
+  static-world violation stress — with commanded tracks + velocities as ground
+  truth and dedicated segmentation label 8 for per-frame motion masks
+  ([docs](docs/SENSOR_RIG.md))
+- **Sensor-Calibration Randomization**: `wildseed rig --calib <0..1>` perturbs
+  mount extrinsics / camera fx / IMU noise and exports the TRUE values to
+  `rig_calibration.json` — clean test feeds the estimator truth, robustness
+  test feeds it the nominals ([docs](docs/EXPERIMENTS.md))
 - **Custom Biomes**: user YAML biomes under a testing contract (declared
   terrain envelope, ground family, structure densities, palette) — scoreable
   by construction, never disturbing existing seed mappings ([docs](docs/EXPERIMENTS.md))
@@ -386,6 +398,8 @@ tools/record_demo.sh orbit 7
 wildseed fly -p flythrough --seed 3 --agl 10 --play        # camera work
 wildseed record -p orbit --seed 7 --dataset                # + lidar/IMU/GT dump
 wildseed record -p dolly --seed 5 --mode dynamic --dataset # honest IMU (PD wrench)
+wildseed record -p flythrough --seed 3 --mode dynamic --dataset \
+    --distractors 0.5                                      # + moving objects (label 8)
 ```
 
 Same seed ⇒ byte-identical trajectory. Kinematic mode teleports the rig

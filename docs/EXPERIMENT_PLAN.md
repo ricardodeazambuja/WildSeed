@@ -115,10 +115,27 @@ If the night runs short this phase ships as design + schema only.
 - G4 (Phase 4): two consecutive full builds of the same spec produce identical
   world hashes (in-container check).
 
-## Deferred axes — designed, not built (next session's Phase 1)
+## Deferred axes — BUILT 2026-07-08 (session 2)
 
-Two goal-item-2 axes need more than a night; recording the design so they
-start from a decision, not a blank page:
+> STATUS UPDATE: all three deferred axes below were implemented in the
+> follow-up session of 2026-07-08/09 (measured results in
+> docs/EXPERIMENTS.md): dynamics = `wildseed record --distractors` +
+> `core/distract.py`; curricula = distribution dials + `experiment --count`;
+> sensor randomization = `wildseed rig --calib` (landed earlier the same
+> day) + `vio_validate --calib` for the truth-vs-nominal comparison. The
+> designs below are kept as written — deviations that measurement forced
+> are noted in the docs (the dynamics recording flies `--mode dynamic`
+> because kinematic playback is confounded by driver service contention;
+> the pose transport is batched `set_pose_vector`, not per-model set_pose).
+>
+> GATE OUTCOMES (both measured, both G3-style honest negatives for the
+> REFERENCE probe): the dynamics dial scales real in-view motion (0→2.1%
+> mean, 25% peaks; movers capture 62–84% of ORB keypoints during
+> crossings) but per-pair RANSAC VO is inherently robust to transient
+> minority motion — sequence metrics flat; the calibration mismatch
+> (≤1.4% fx, 0.3° mounts, 4× IMU noise) is beneath what a GT-scaled
+> camera-only probe can feel. Machinery + GT channels for both axes are
+> delivered and verified; their real victims are full VIO/VSLAM systems.
 
 **Dynamics (static-world violation).** Dial = fraction-of-view-in-motion.
 ARCHITECTURE DECISION (2026-07-08, sharpened while closing the session):

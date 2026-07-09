@@ -94,10 +94,42 @@ recording, then writes to `runs/<world>_<pattern>_seed<N>/`:
 - `video.mp4` — encoded at the fps measured from **sensor sim-time stamps**, so
   a slow render (RTF < 1) still yields a real-time-correct video
 - `manifest.json` + the exact `trajectory.json`
-- with `--dataset`: lidar `.npz`, imu/navsat `.csv`, TUM `groundtruth.txt`
+- with `--dataset`: lidar `.npz`, imu/navsat `.csv`, TUM `groundtruth.txt`,
+  and the segmentation stream (`seg_XXXXXX.png` + `seg.csv`; raw
+  `labels_map` frames — class label in channel 2)
 
 `tools/record_demo.sh <pattern> <seed> [world] [extra args]` wraps the gz
 server + record in one container run.
+
+### Dynamic scenes: `--distractors` (the dynamics stress axis)
+
+`wildseed record --distractors <dial 0..1>` spawns `round(16·dial)` seeded
+kinematic movers (converted bush/rock models) into the **running** world and
+drives them across the camera's path during the flight — the static-world
+violation every VIO/SLAM formulation assumes away. Mechanics and ground truth:
+
+- Tracks are synthesized **before** takeoff (pure function of trajectory,
+  terrain, dial, `--distractor-seed`): each mover patrols a crossing segment
+  ahead of the rig at its anchor time, ground-following, phase-aligned to be
+  in view. The commanded tracks + velocities land in `distractors.json`
+  (column order documented inside); the driver's sim-time epoch `t0_sim` is
+  in `manifest.json` — sample track time `t_sim − t0_sim` to get any mover's
+  pose/velocity at any sensor timestamp.
+- Movers are spawned via `/world/<w>/create` and driven by one batched
+  `set_pose_vector` request per tick — **the world file is never modified**,
+  so a world's provenance hashes stay valid; the run directory carries the
+  motion record.
+- Every mover carries segmentation class label **8** (`distractor`), so a
+  per-frame 2-D motion mask is a plain `label == 8` test on the recorded
+  seg stream: `tools/vio_validate.py --mask-label 8` scores a dataset with
+  moving pixels excluded (vs. without) — the with/without-mask comparison
+  the dynamics gate uses (measured ladder + the honest negative result for
+  the reference probe: [EXPERIMENTS.md](EXPERIMENTS.md)).
+- **Record dynamics datasets with `--mode dynamic`.** The mover driver adds
+  service traffic, and kinematic rig playback shares that service — under
+  contention the rig's own flight stutters (measured: p95 frame-pair
+  displacement 1.98 → 3.06 m), which degrades matching globally and
+  confounds the axis. The dynamic (wrench-topic) flight is immune.
 
 ## Known behaviors & gotchas
 
@@ -117,6 +149,16 @@ server + record in one container run.
   element is ignored by gz Harmonic.
 - **gz OdometryPublisher twist is child-frame** — rotate to world before using
   it as velocity feedback.
+- **`/world/<w>/stats` freezes during scene load** (~40–70 s on dense worlds):
+  anything waiting for the sim clock needs a ≥120 s deadline, not 30 s.
+- **Import gz protobuf modules on the main thread** before starting worker
+  threads — concurrent first-imports across threads intermittently leave
+  message types unregistered ("No message class registered for
+  'gz.msgs.Pose'").
+- **A timed-out `set_pose`/`set_pose_vector` request usually still applies** —
+  under load the server answers late, not never. Treat a timeout as a skipped
+  update; retrying or fanning out per-model requests multiplies the service
+  contention until flights starve.
 - **ROS 2**: use the `wildseed:ros` overlay image (`docker/Dockerfile.ros`,
   ROS 2 Humble). The Harmonic bridge package is `ros-humble-ros-gzharmonic`
   (plain `ros-gz` targets Fortress); `docker/ros_gz_bridge.yaml` maps all
