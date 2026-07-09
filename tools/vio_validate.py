@@ -105,24 +105,32 @@ def load_seg_index(run):
     return np.asarray(times), paths
 
 
-def motion_mask(seg_index, t, label, dilate_px=12):
-    """ORB feature mask (255 = usable) from the seg frame nearest to t.
+def motion_mask(seg_index, t, label, dilate_px=24):
+    """ORB feature mask (255 = usable) from the seg frames bracketing t.
 
     Recorded seg PNGs round-trip the raw labels_map bytes, so the class label
-    sits in channel 2 (spike-verified). The moving region is dilated before
-    inverting so features on mover boundaries are excluded too. Returns None
-    when no seg frame is close enough (frame skipped -> no masking).
+    sits in channel 2 (spike-verified). Segmentation runs at 5 Hz while the
+    camera runs at 10 Hz, and a nearby mover crosses tens of pixels between
+    seg frames — one nearest seg frame leaves the mover half-unmasked at
+    off-phase cam times (measured). So: UNION the moving regions of the two
+    seg frames bracketing t, then dilate, then invert. Returns None when no
+    seg frame is close enough (frame skipped -> no masking).
     """
     if seg_index is None or t is None:
         return None
     times, paths = seg_index
-    i = int(np.argmin(np.abs(times - t)))
-    if abs(times[i] - t) > SEG_TOL_S:
+    near = np.argsort(np.abs(times - t))[:2]
+    moving = None
+    for i in near:
+        if abs(times[i] - t) > SEG_TOL_S:
+            continue
+        seg = cv2.imread(paths[int(i)])
+        if seg is None:
+            continue
+        m = (seg[:, :, 2] == label).astype(np.uint8) * 255
+        moving = m if moving is None else cv2.bitwise_or(moving, m)
+    if moving is None:
         return None
-    seg = cv2.imread(paths[i])
-    if seg is None:
-        return None
-    moving = (seg[:, :, 2] == label).astype(np.uint8) * 255
     if dilate_px > 0:
         kernel = np.ones((dilate_px, dilate_px), np.uint8)
         moving = cv2.dilate(moving, kernel)

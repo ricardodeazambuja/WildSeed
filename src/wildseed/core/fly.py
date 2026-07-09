@@ -274,10 +274,12 @@ def play_trajectory(traj: Dict, world: str = "forest_world",
         return sim["t"] + (time.time() - sim["wall"]) * sim["rtf"]
 
     node.subscribe(WorldStatistics, f"/world/{world}/stats", stats_cb)
-    deadline = time.time() + 30
+    # /stats is FROZEN while the server loads the scene (measured gotcha) and
+    # a dense world takes ~40-70 s to load — 30 s missed it by a hair.
+    deadline = time.time() + 120
     while sim["t"] is None:
         if time.time() > deadline:
-            raise RuntimeError(f"no sim clock on /world/{world}/stats in 30 s "
+            raise RuntimeError(f"no sim clock on /world/{world}/stats in 120 s "
                                "(is the server running with -r?)")
         time.sleep(0.05)
     time.sleep(settle_s)   # let sensors warm up before the take starts
@@ -417,10 +419,12 @@ def fly_dynamic(traj: Dict, world: str = "forest_world",
     pub = node.advertise(f"/world/{world}/wrench/persistent", EntityWrench)
     pub_clear = node.advertise(f"/world/{world}/wrench/clear", Entity)
 
-    deadline = time.time() + 30
+    # stats/odometry stay silent until the scene finishes loading (~40-70 s
+    # on dense worlds) — the deadline must cover the load, not just startup
+    deadline = time.time() + 120
     while sim["t"] is None or fb["p"] is None:
         if time.time() > deadline:
-            raise RuntimeError("no sim stats/odometry within 30 s "
+            raise RuntimeError("no sim stats/odometry within 120 s "
                                "(rig world running? OdometryPublisher on?)")
         time.sleep(0.05)
 

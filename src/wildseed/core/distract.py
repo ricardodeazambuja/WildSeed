@@ -106,10 +106,15 @@ def synthesize_distractors(traj: Dict, terrain, dial: float, seed: int,
         p = interpolate_pose(traj, t_anchor)
         yaw = 2.0 * math.atan2(p["qz"], p["qw"])   # rig yaw (roll/pitch small)
 
-        ahead = rng.uniform(8.0, 22.0)             # crossing distance, m
+        # Crossing geometry sets the achievable fraction-of-view-in-motion:
+        # a ~1.5 m mover at 6-14 m ahead of a 554 px-f camera spans ~60-140 px
+        # (12-30% of frame height) at closest approach. The first mapping
+        # (8-22 m ahead, <=2.4 m/s) peaked at ~1% mean view fraction and the
+        # sequence metrics never moved (measured) — too far, too slow.
+        ahead = rng.uniform(6.0, 14.0)             # crossing distance, m
         cx = p["x"] + ahead * math.cos(yaw)
         cy = p["y"] + ahead * math.sin(yaw)
-        half = rng.uniform(5.0, 14.0)              # patrol half-length, m
+        half = rng.uniform(4.0, 10.0)              # patrol half-length, m
         c_ang = yaw + math.pi / 2 + rng.uniform(-0.5, 0.5)
         ax, ay = cx - half * math.cos(c_ang), cy - half * math.sin(c_ang)
         bx, by = cx + half * math.cos(c_ang), cy + half * math.sin(c_ang)
@@ -118,7 +123,7 @@ def synthesize_distractors(traj: Dict, terrain, dial: float, seed: int,
         ax, bx = np.clip([ax, bx], x0, x1)
         ay, by = np.clip([ay, by], y0, y1)
 
-        speed = float(rng.uniform(0.6, 2.4))       # m/s along the patrol
+        speed = float(rng.uniform(1.2, 3.5))       # m/s along the patrol
         leg = math.hypot(bx - ax, by - ay)
         period = 2.0 * leg / speed                 # A->B->A
         # phase so the mover sits at the segment centre at t_anchor
@@ -236,9 +241,21 @@ class DistractorDriver:
 
     # -- gz plumbing --------------------------------------------------------
     def _connect(self):
+        # Import EVERY message class here, on the caller's (main) thread —
+        # the drive thread importing protobuf modules concurrently with the
+        # flight code's own gz imports produced a partially-registered
+        # "No message class registered for 'gz.msgs.Pose'" race (measured).
+        from gz.msgs10.boolean_pb2 import Boolean
+        from gz.msgs10.entity_pb2 import Entity
+        from gz.msgs10.entity_factory_pb2 import EntityFactory
+        from gz.msgs10.pose_pb2 import Pose  # noqa: F401 — registers the
+        # nested type Pose_V.pose entries are built from
+        from gz.msgs10.pose_v_pb2 import Pose_V
         from gz.msgs10.world_stats_pb2 import WorldStatistics
         from gz.transport13 import Node
 
+        self._Boolean, self._Entity = Boolean, Entity
+        self._EntityFactory, self._Pose_V = EntityFactory, Pose_V
         self._node = Node()
         self._sim = {"t": None, "wall": None, "rtf": 1.0}
 
@@ -250,11 +267,11 @@ class DistractorDriver:
 
         self._stats_topic = f"/world/{self.world}/stats"
         self._node.subscribe(WorldStatistics, self._stats_topic, stats_cb)
-        deadline = time.time() + 30
+        deadline = time.time() + 120   # /stats is frozen during scene load
         while self._sim["t"] is None:
             if time.time() > deadline:
                 raise RuntimeError(
-                    f"no sim clock on {self._stats_topic} in 30 s")
+                    f"no sim clock on {self._stats_topic} in 120 s")
             time.sleep(0.05)
 
     def _sim_now(self):
@@ -262,25 +279,41 @@ class DistractorDriver:
         return s["t"] + (time.time() - s["wall"]) * s["rtf"]
 
     def spawn(self):
-        """Create every mover at its t=0 pose; returns the spawned count."""
-        from gz.msgs10.boolean_pb2 import Boolean
-        from gz.msgs10.entity_factory_pb2 import EntityFactory
+        """Create every mover at its t=0 pose; returns the spawned count.
 
+        Retries each failed create: right after server start the scene may
+        still be loading and every service round-trip times out for tens of
+        seconds (measured: a spawn burst in that window lost 7/8 movers) —
+        but like set_pose, a timed-out create often APPLIED anyway, so the
+        retry tolerates an "already exists" style rejection by re-checking
+        nothing and simply moving on after the attempts.
+        """
         self._connect()
         service = f"/world/{self.world}/create"
         spawned = 0
-        for m in self.plan["distractors"]:
-            req = EntityFactory()
-            req.sdf = mover_sdf(m["name"], m["model"], track_pose(m, 0.0))
-            req.name = m["name"]
-            req.allow_renaming = False
-            ok, rep = self._node.request(service, req, EntityFactory,
-                                         Boolean, 5000)
-            if ok and rep.data:
-                spawned += 1
-            else:
-                logger.warning(f"spawn failed for {m['name']} "
-                               f"({m['model']}) on {service}")
+        pending = list(self.plan["distractors"])
+        for attempt in range(4):
+            failed = []
+            for m in pending:
+                req = self._EntityFactory()
+                req.sdf = mover_sdf(m["name"], m["model"], track_pose(m, 0.0))
+                req.name = m["name"]
+                req.allow_renaming = False
+                ok, rep = self._node.request(service, req,
+                                             self._EntityFactory,
+                                             self._Boolean, 10000)
+                if ok and rep.data:
+                    spawned += 1
+                else:
+                    failed.append(m)
+            pending = failed
+            if not failed:
+                break
+            logger.warning(f"{len(failed)} spawn(s) unanswered on {service} "
+                           f"(attempt {attempt + 1}); retrying in 10 s")
+            time.sleep(10.0)
+        for m in pending:
+            logger.warning(f"spawn failed for {m['name']} ({m['model']})")
         # let the render/scene absorb the new entities before driving them —
         # right after spawn every service round-trip times out for a while
         time.sleep(3.0)
@@ -288,13 +321,7 @@ class DistractorDriver:
 
     def _drive_batch(self, poses, timeout_ms: int = 300) -> bool:
         """One set_pose_vector request for all movers; False on timeout."""
-        from gz.msgs10.boolean_pb2 import Boolean
-        from gz.msgs10 import pose_pb2  # noqa: F401 — registers gz.msgs.Pose,
-        # or Pose_V's repeated field can't construct entries (measured:
-        # "No message class registered for 'gz.msgs.Pose'")
-        from gz.msgs10.pose_v_pb2 import Pose_V
-
-        req = Pose_V()
+        req = self._Pose_V()
         for name, (x, y, z, yaw) in poses:
             p = req.pose.add()
             p.name = name
@@ -302,8 +329,8 @@ class DistractorDriver:
             p.orientation.w = math.cos(yaw / 2)
             p.orientation.z = math.sin(yaw / 2)
         ok, rep = self._node.request(
-            f"/world/{self.world}/set_pose_vector", req, Pose_V, Boolean,
-            timeout_ms)
+            f"/world/{self.world}/set_pose_vector", req, self._Pose_V,
+            self._Boolean, timeout_ms)
         return bool(ok and rep.data)
 
     def _loop(self):
@@ -341,14 +368,12 @@ class DistractorDriver:
             self._thread.join(timeout=10)
         if remove:
             try:
-                from gz.msgs10.boolean_pb2 import Boolean
-                from gz.msgs10.entity_pb2 import Entity
                 for m in self.plan["distractors"]:
-                    req = Entity()
+                    req = self._Entity()
                     req.name = m["name"]
-                    req.type = Entity.MODEL
+                    req.type = self._Entity.MODEL
                     self._node.request(f"/world/{self.world}/remove",
-                                       req, Entity, Boolean, 1000)
+                                       req, self._Entity, self._Boolean, 1000)
             except Exception as e:   # best-effort cleanup only
                 logger.debug(f"remove distractors: {e}")
         try:
