@@ -120,8 +120,73 @@ def test_list_mover_models_sorted_and_filtered(tmp_path):
         d.mkdir(parents=True)
         (d / "model.sdf").write_text("<sdf/>")
     (tmp_path / "bush" / "incomplete").mkdir()        # no model.sdf -> skipped
+    # rock/r1 has no readable GLB -> benefit of the doubt, kept
     assert list_mover_models(tmp_path) == ["bush/b1", "bush/b2", "rock/r1"]
     assert list_mover_models(tmp_path / "missing") == []
+
+
+def _mini_glb(positions, triangles):
+    """Minimal valid GLB: one mesh, one indexed primitive."""
+    import struct
+
+    pos = np.asarray(positions, np.float32)
+    idx = np.asarray(triangles, np.uint16).ravel()
+    binchunk = pos.tobytes() + idx.tobytes()
+    binchunk += b"\x00" * (-len(binchunk) % 4)
+    gltf = {
+        "asset": {"version": "2.0"},
+        "buffers": [{"byteLength": len(binchunk)}],
+        "bufferViews": [
+            {"buffer": 0, "byteOffset": 0, "byteLength": pos.nbytes},
+            {"buffer": 0, "byteOffset": pos.nbytes, "byteLength": idx.nbytes},
+        ],
+        "accessors": [
+            {"bufferView": 0, "componentType": 5126, "count": len(pos),
+             "type": "VEC3"},
+            {"bufferView": 1, "componentType": 5123, "count": len(idx),
+             "type": "SCALAR"},
+        ],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0},
+                                    "indices": 1}]}],
+    }
+    j = json.dumps(gltf).encode()
+    j += b" " * (-len(j) % 4)
+    total = 12 + 8 + len(j) + 8 + len(binchunk)
+    return (b"glTF" + struct.pack("<II", 2, total)
+            + struct.pack("<I", len(j)) + b"JSON" + j
+            + struct.pack("<I", len(binchunk)) + b"BIN\x00" + binchunk)
+
+
+TETRA = _mini_glb([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]],
+                  [[0, 2, 1], [0, 1, 3], [0, 3, 2], [1, 2, 3]])  # closed
+SHELL = _mini_glb([[0, 0, 0], [1, 0, 0], [0, 1, 0]], [[0, 1, 2]])  # open
+
+
+def test_glb_open_ratio_discriminates():
+    from wildseed.core.distract import glb_open_ratio
+
+    def write(tmp, name, blob):
+        p = tmp / name
+        p.write_bytes(blob)
+        return p
+
+    import tempfile
+    from pathlib import Path
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        assert glb_open_ratio(write(td, "tetra.glb", TETRA)) == 0.0
+        assert glb_open_ratio(write(td, "shell.glb", SHELL)) == 1.0
+        assert glb_open_ratio(td / "missing.glb") is None
+
+
+def test_open_shell_rocks_are_dropped_from_pool(tmp_path):
+    for name, blob in (("rock/solid", TETRA), ("rock/shell", SHELL),
+                       ("bush/cards", SHELL)):        # open bushes are kept
+        d = tmp_path / name
+        (d / "mesh").mkdir(parents=True)
+        (d / "model.sdf").write_text("<sdf/>")
+        (d / "mesh" / f"{d.name}.glb").write_bytes(blob)
+    assert list_mover_models(tmp_path) == ["bush/cards", "rock/solid"]
 
 
 # --------------------------------------------------------------------------- #

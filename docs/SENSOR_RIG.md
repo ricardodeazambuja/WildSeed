@@ -104,7 +104,10 @@ server + record in one container run.
 ### Dynamic scenes: `--distractors` (the dynamics stress axis)
 
 `wildseed record --distractors <dial 0..1>` spawns `round(16·dial)` seeded
-kinematic movers (converted bush/rock models) into the **running** world and
+kinematic movers (converted bush/rock models; rocks whose scan mesh is an
+open shell — e.g. the hollow-backed `rock_face_01` relief — are excluded,
+since a mover must read as a solid from every patrol yaw and ogre2 backface-
+culls an open shell to a few silhouette edges) into the **running** world and
 drives them across the camera's path during the flight — the static-world
 violation every VIO/SLAM formulation assumes away. Mechanics and ground truth:
 

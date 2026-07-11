@@ -33,6 +33,7 @@ stream.
 import json
 import logging
 import math
+import struct
 import threading
 import time
 from pathlib import Path
@@ -44,7 +45,9 @@ from wildseed.core.rig import CLASS_LABELS
 
 logger = logging.getLogger("wildseed.distract")
 
-DISTRACTOR_FORMAT = 1
+# 2: open-shell rocks are excluded from the mover pool (same seed draws
+#    from a smaller model list than format 1).
+DISTRACTOR_FORMAT = 2
 DISTRACTOR_LABEL = CLASS_LABELS["distractor"]
 MAX_DISTRACTORS = 16          # dial 1.0; scales fraction-of-view-in-motion
 TRACK_RATE = 10.0             # waypoints/s in the plan (interpolated at drive)
@@ -58,18 +61,86 @@ _DISTRACT_TAG = 0xD15_7AC7
 _MOVER_CATEGORIES = ("bush", "rock")
 _GROUND_CLEARANCE = 0.25      # m; movers glide just above the terrain
 
+# Rocks whose scan mesh is an OPEN SHELL (photogrammetry relief like
+# rock_face_01: front surface only, hollow back) vanish when a patrol yaw
+# turns their back to the camera — ogre2 backface-culls and only silhouette
+# edges survive (measured on the first distractor demo video). A mover must
+# read as a solid from every yaw, so open rocks are excluded. Bushes are
+# open by construction (foliage cards) but carry cards at many orientations,
+# so they stay visible from all angles and are kept.
+_OPEN_MESH_MAX = 0.02         # welded boundary-edge ratio above this = open
+
+_GLB_CTYPES = {5121: np.uint8, 5123: np.uint16, 5125: np.uint32,
+               5126: np.float32}
+
+
+def glb_open_ratio(glb_path: Path) -> Optional[float]:
+    """Boundary-edge fraction of a GLB's welded mesh (0 = closed).
+
+    Vertices are welded by position (1e-5 grid) first — scan exporters split
+    vertices per-face for normals/UVs, which hides edge sharing from the raw
+    index buffer. Returns None when the file is missing or unparsable (the
+    caller gives such models the benefit of the doubt).
+    """
+    try:
+        with open(glb_path, "rb") as f:
+            data = f.read()
+        jlen = struct.unpack("<I", data[12:16])[0]
+        g = json.loads(data[20:20 + jlen])
+        blen = struct.unpack("<I", data[20 + jlen:24 + jlen])[0]
+        buf = data[28 + jlen:28 + jlen + blen]
+
+        def _acc(ai, ncomp):
+            a = g["accessors"][ai]
+            bv = g["bufferViews"][a["bufferView"]]
+            start = bv.get("byteOffset", 0) + a.get("byteOffset", 0)
+            arr = np.frombuffer(buf, _GLB_CTYPES[a["componentType"]],
+                                count=a["count"] * ncomp, offset=start)
+            return arr.reshape(a["count"], ncomp) if ncomp > 1 else arr
+
+        total = boundary = 0
+        for mesh in g.get("meshes", []):
+            for prim in mesh.get("primitives", []):
+                if "indices" not in prim:
+                    continue
+                pos = _acc(prim["attributes"]["POSITION"], 3)
+                idx = _acc(prim["indices"], 1).astype(np.int64).reshape(-1, 3)
+                key = np.round(pos * 1e5).astype(np.int64)
+                _, weld = np.unique(key, axis=0, return_inverse=True)
+                widx = weld[idx]
+                e = np.concatenate([widx[:, [0, 1]], widx[:, [1, 2]],
+                                    widx[:, [2, 0]]])
+                e.sort(axis=1)
+                _, cnt = np.unique(e, axis=0, return_counts=True)
+                total += len(cnt)
+                boundary += int((cnt == 1).sum())
+        return boundary / total if total else None
+    except Exception:
+        return None
+
 
 def list_mover_models(models_root: Path,
                       categories=_MOVER_CATEGORIES) -> List[str]:
-    """Sorted ``category/model`` URIs usable as movers (deterministic listing)."""
+    """Sorted ``category/model`` URIs usable as movers (deterministic listing).
+
+    Rocks with an open scan shell (see ``_OPEN_MESH_MAX``) are dropped; a rock
+    whose GLB cannot be read keeps its slot.
+    """
     out = []
     for cat in categories:
         cat_dir = Path(models_root) / cat
         if not cat_dir.is_dir():
             continue
         for d in sorted(cat_dir.iterdir()):
-            if (d / "model.sdf").exists():
-                out.append(f"{cat}/{d.name}")
+            if not (d / "model.sdf").exists():
+                continue
+            if cat == "rock":
+                ratio = glb_open_ratio(d / "mesh" / f"{d.name}.glb")
+                if ratio is not None and ratio > _OPEN_MESH_MAX:
+                    logger.info(f"mover pool: dropping open-shell "
+                                f"{cat}/{d.name} (boundary {ratio:.3f})")
+                    continue
+            out.append(f"{cat}/{d.name}")
     return out
 
 
