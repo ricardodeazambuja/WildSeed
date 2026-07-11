@@ -9,8 +9,10 @@ Env:
 
 Top-down camera looks DOWN with pitch +1.5708 (NOT -1.5708, which looks at sky).
 """
+import json
 import math
 import os
+import struct
 import xml.etree.ElementTree as ET
 
 OBJ = "/workspace/models/ground/mesh/terrain.obj"
@@ -169,9 +171,9 @@ if os.environ.get("FOREST") == "1" and os.path.exists(_FOREST_WORLD):
         except (ValueError, IndexError):
             continue
         if "model://rock" in uri:
-            hero_rocks.append(pose)
+            hero_rocks.append(pose + (uri.rstrip("/").rsplit("/", 1)[-1],))
         elif "model://tree" in uri:
-            hero_trees.append(pose)
+            hero_trees.append(pose + (uri.rstrip("/").rsplit("/", 1)[-1],))
     print(f"grafted {n} forest includes ({len(hero_rocks)} rocks, {len(hero_trees)} trees)")
 
 
@@ -194,17 +196,87 @@ def cam(name, x, y, z, pit, ya, fov=1.1, w=1100, h=750):
 if hero_rocks and "HERO_EX" not in os.environ:
     def _near(r, radius=55.0):
         return [t for t in hero_trees if math.hypot(t[0] - r[0], t[1] - r[1]) < radius]
-    R = max(hero_rocks, key=lambda r: (len(_near(r)), r[3]))
-    rx, ry, rz, rs = R
+
+    # Real per-model footprint from the GLB bbox (metres, before placement scale).
+    # The 1.9-unit heuristic assumed single boulders; the palette now also holds
+    # multi-rock SETS tens of metres wide (coast_rocks_*, rock_moss_set_01) whose
+    # <scale> says nothing about physical size -- framing one from 6 m fills the
+    # lens with rock. Measure, don't assume; fall back to the heuristic on any
+    # read failure.
+    def _glb_radius(cat, mid):
+        try:
+            p = f"/workspace/models/{cat}/{mid}/mesh/{mid}.glb"
+            with open(p, "rb") as f:
+                head = f.read(20)
+                jl = struct.unpack("<I", head[12:16])[0]
+                g = json.loads(f.read(jl))
+            vs = [a for a in g["accessors"]
+                  if a.get("type") == "VEC3" and "min" in a and "max" in a]
+            dx = max(a["max"][0] for a in vs) - min(a["min"][0] for a in vs)
+            dy = max(a["max"][1] for a in vs) - min(a["min"][1] for a in vs)
+            return max(dx, dy) / 2.0
+        except Exception:
+            return None
+
+    _radcache = {}
+    def _model_rad(cat, mid):
+        if (cat, mid) not in _radcache:
+            _radcache[(cat, mid)] = _glb_radius(cat, mid)
+        return _radcache[(cat, mid)]
+
+    def _rad_m(r):
+        base = _model_rad("rock", r[4])
+        return (base if base is not None else 1.9 * 0.6) * r[3]
+
+    def _tree_block_rad(t):
+        # How far a tree's foliage reaches from its trunk: half the mesh's XY
+        # extent times placement scale (fir/pine canopies are 10+ m wide raw),
+        # halved again since bboxes overshoot the visually dense core, plus a
+        # 2 m buffer. The sight line must clear this per tree, not a constant.
+        base = _model_rad("tree", t[4])
+        return 2.0 + 0.5 * (base if base is not None else 3.0) * t[3]
+
+    # Hero candidates: landmark-sized boulders only (sets/slabs excluded), best
+    # tree company first. The whole view corridor (camera -> boulder segment)
+    # must stay >4 m clear of tree trunks -- a canopy anywhere along the sight
+    # line, not just at the lens, blacks out the frame.
+    HERO_MAX_RAD = float(os.environ.get("HERO_MAX_RAD", "4.0"))
+    ranked = sorted([r for r in hero_rocks if _rad_m(r) <= HERO_MAX_RAD],
+                    key=lambda r: (len(_near(r)), _rad_m(r)), reverse=True) \
+        or sorted(hero_rocks, key=_rad_m)[:1]   # all huge: least-huge, still framed
+
+    def _corridor(cand):
+        rx, ry = cand[0], cand[1]
+        rad = _rad_m(cand)
+        onorm = math.hypot(rx, ry) or 1.0
+        ox, oy = rx / onorm, ry / onorm
+        cx_ = rx + ox * (6.0 + rad) - oy * 2.0
+        cy_ = ry + oy * (6.0 + rad) + ox * 2.0
+        dx, dy = rx - cx_, ry - cy_
+        seg2 = dx * dx + dy * dy or 1.0
+        margin = 1e9
+        for t in hero_trees:
+            s = max(0.0, min(1.0, ((t[0] - cx_) * dx + (t[1] - cy_) * dy) / seg2))
+            d = math.hypot(t[0] - (cx_ + dx * s), t[1] - (cy_ + dy * s))
+            margin = min(margin, d - _tree_block_rad(t))
+        return margin, (cx_, cy_)
+
+    R, (clear, cam_pos) = ranked[0], _corridor(ranked[0])
+    for cand in ranked:
+        c, pos = _corridor(cand)
+        if c > 0.0:                            # sight line clears every canopy
+            R, clear, cam_pos = cand, c, pos
+            break
+        if c > clear:                          # keep the least-blocked as fallback
+            R, clear, cam_pos = cand, c, pos
+    rx, ry, rz, rs = R[:4]
+    rad = _rad_m(R)
     local = _near(R) or hero_trees or [R]
     tx = sum(t[0] for t in local) / len(local)
     ty = sum(t[1] for t in local) / len(local)
     onorm = math.hypot(rx, ry) or 1.0
     ox, oy = rx / onorm, ry / onorm           # outward from the hill centre
-    perpx, perpy = -oy, ox                     # lateral offset (so cam isn't dead-on)
-    rad = 1.9 * rs * 0.6                        # rough boulder radius in metres
-    hcx = rx + ox * (6.0 + rad) + perpx * 2.0
-    hcy = ry + oy * (6.0 + rad) + perpy * 2.0
+    hcx, hcy = cam_pos
     # HERO_DOWN raises the eye on FLAT scenes (savanna/coastal) so the shot tilts DOWN
     # into the near field instead of staring level across the horizon -> cuts dead sky
     # (the coverage drag on arid flats) and pushes the tiling-prone foreground sand below
@@ -219,7 +291,10 @@ if hero_rocks and "HERO_EX" not in os.environ:
     haz = min(rz + 1.0, hcz - 0.4)
     hx, hy, hz = hcx, hcy, hcz
     hyaw = math.atan2(hay - hcy, hax - hcx)
-    hpitch = math.atan2(hz - haz, math.hypot(hax - hcx, hay - hcy))
+    # Cap the down-tilt: on steep terrain the eye can sit metres above the rock
+    # and the raw geometry stares into bare ground -- keep the receding scene
+    # (and some sky) in the upper frame. 0.40 rad preserves HERO_DOWN's intent.
+    hpitch = min(0.40, math.atan2(hz - haz, math.hypot(hax - hcx, hay - hcy)))
     print(f"PhaseD hero cam frames boulder scale={rs:.2f} ({len(_near(R))} trees within 55 m)")
 
 parts.append(cam("cam_oblique", cx, cy, cz, pitch, yaw))

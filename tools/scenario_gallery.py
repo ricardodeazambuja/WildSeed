@@ -19,7 +19,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 WS = "/workspace"
 CLI = ["python3", "-m", "wildseed.cli.main"]
-SEEDS = [int(a) for a in sys.argv[1:]] or [101, 107, 108]
+# Default trio = the committed README hero gallery (wetland / temperate /
+# alpine under scenario format 5); pass explicit seeds to render others.
+SEEDS = [int(a) for a in sys.argv[1:]] or [102, 107, 101]
 
 
 def run(cmd, **kw):

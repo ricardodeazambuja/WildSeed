@@ -31,7 +31,7 @@ docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e PYTHONPATH=/work
 | `compare.py` | Image-level metric harness: ORB/FAST per-MP, 8×8 coverage, tiling autocorrelation. Compares the 6 scenes against local reference images if present (not bundled). Emits `compare.png` + a markdown table. Needs `opencv-python-headless` (in `:egl`). |
 | `quickmetric.py` | Fast single-scene readout (`python3 tools/quickmetric.py savanna_flats`). |
 | `regen_galleries.py` | Rebuilds the 6-panel `scenarios_gallery.png` / `scenarios_overview.png` from frames on disk — use after a single-scene `FOREST_SCN=` build. |
-| `scenario_gallery.py` | Builds + renders N `wildseed scenario --seed` worlds (default 101/107/108) → `scenario_seeds_gallery.png`, the seed-diversity gallery. For rows scenarios the hero cam auto-aims at the plantation centroid (from the `.instances.json` ground truth). `scenario_structured_gallery.png` (seeds 204/207) shows the vineyard + orchard biomes. |
+| `scenario_gallery.py` | Builds + renders N `wildseed scenario --seed` worlds (default 102/107/101, the committed README trio) → `scenario_seeds_gallery.png`, the seed-diversity gallery. For rows scenarios the hero cam auto-aims at the plantation centroid (from the `.instances.json` ground truth). `scenario_structured_gallery.png` (seeds 204/207) shows the vineyard + orchard biomes. |
 
 ### VIO benchmarking (does a generated world actually support VIO?)
 

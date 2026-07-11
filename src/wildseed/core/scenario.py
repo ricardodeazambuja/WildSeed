@@ -34,7 +34,13 @@ logger = logging.getLogger("wildseed.scenario")
 #    stage seed and draw is unchanged; with the new dials unset the built world
 #    is byte-identical to format 3. vio_lio also gained the `texture` dial
 #    (<0.5 -> uniform ground = the measured aliasing worst case; else patchy).
-SCENARIO_FORMAT = 4
+# 5: structured-row realism (orchard/vineyard only): jitter/missing/
+#    wave_amplitude envelopes widened to visible magnitudes and orchard trees
+#    gained yaw='random' (a constant -- consumes no RNG draws). Wilderness
+#    biomes and every non-row draw are unchanged from format 4; within the
+#    row envelopes the underlying uniform samples are the same, so only the
+#    jitter/missing/wave values (range-rescaled) and yaw differ.
+SCENARIO_FORMAT = 5
 
 # Wilderness biomes: random scatter, subject to the >=3-tree/>=2-understory
 # species-variety floor (repeated-model aliasing is the enemy there).
@@ -97,20 +103,26 @@ BIOME_SPACE = {
                    detail=(0.05, 0.10), smooth_sigma=(1.8, 2.2)),
         ground="grassland", water=False,
         density=dict(tree=0, rock=8, bush=25, grass=200),
+        # Rows are real (planted by machine) but plants are not: visible
+        # per-plant jitter (~10% of spacing), random canopy yaw (clone models
+        # all facing the same way read as a lattice), real gap rate + row
+        # bend. Format-5 values; the format-4 draws looked CAD-perfect.
         rows=dict(tree=dict(row_distance=(5.0, 8.0), plant_distance=(3.5, 5.5),
                             field_size=(60, 95), angle=(0.0, 3.1416),
-                            jitter=(0.08, 0.25), missing=(0.03, 0.12),
-                            wave_amplitude=(0.0, 1.5)))),
+                            jitter=(0.30, 0.60), missing=(0.05, 0.15),
+                            wave_amplitude=(0.5, 2.5), yaw="random"))),
     "vineyard": dict(
         presets=("flat", "hilly"),
         knobs=dict(amplitude_m=(2, 7), feature_m=(140, 180),
                    detail=(0.05, 0.10), smooth_sigma=(1.8, 2.2)),
         ground="desert", water=False,
         density=dict(tree=10, rock=10, bush=0, grass=120),
+        # Vines stay row-aligned (trellised), but gain visible in-row jitter
+        # and gentle row bend so the block doesn't read as a printed grid.
         rows=dict(bush=dict(row_distance=(2.2, 3.2), plant_distance=(1.2, 1.8),
                             field_size=(45, 70), angle=(0.0, 3.1416),
-                            jitter=(0.04, 0.12), missing=(0.02, 0.10),
-                            wave_amplitude=(0.0, 0.8)))),
+                            jitter=(0.08, 0.20), missing=(0.02, 0.10),
+                            wave_amplitude=(0.3, 1.2)))),
 }
 
 # Density counts jitter by this factor range around the biome base (then scale by
@@ -268,12 +280,16 @@ def resolve_scenario(
         density[cat] = int(round(base * jitter * density_scale))
 
     # Structured-row envelopes (orchard/vineyard): draw every row param the
-    # same way terrain knobs are drawn, in sorted key order.
+    # same way terrain knobs are drawn, in sorted key order. Non-tuple values
+    # are fixed constants: passed through verbatim, consuming no RNG draws.
     rows = {}
     for cat, envelope in sorted(space.get("rows", {}).items()):
         drawn = {}
-        for key, (lo, hi) in sorted(envelope.items()):
-            drawn[key] = round(float(rng.uniform(lo, hi)), 3)
+        for key, rng_range in sorted(envelope.items()):
+            if isinstance(rng_range, (tuple, list)):
+                drawn[key] = round(float(rng.uniform(*rng_range)), 3)
+            else:
+                drawn[key] = rng_range
         rows[cat] = drawn
 
     return {

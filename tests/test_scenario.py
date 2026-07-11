@@ -90,6 +90,9 @@ def test_structured_biomes_resolve_rows_within_envelope():
         for cat, drawn in spec["rows"].items():
             envelope = BIOME_SPACE[biome]["rows"][cat]
             for key, val in drawn.items():
+                if not isinstance(envelope[key], (tuple, list)):
+                    assert val == envelope[key], f"{biome}.{cat}.{key} constant drifted"
+                    continue
                 lo, hi = envelope[key]
                 assert lo <= val <= hi, f"{biome}.{cat}.{key}={val} outside ({lo},{hi})"
         # the rows category must not also be scattered
@@ -116,7 +119,7 @@ def test_max_slope_in_spec_and_consumes_no_rng():
     ka = {k: v for k, v in a["terrain_knobs"].items() if k != "max_mean_slope_deg"}
     kb = {k: v for k, v in b["terrain_knobs"].items() if k != "max_mean_slope_deg"}
     assert ka == kb and a["density"] == b["density"]
-    assert a["scenario_format"] == 4
+    assert a["scenario_format"] == 5
 
 
 # --------------------------------------------------------- vio_lio profile ----

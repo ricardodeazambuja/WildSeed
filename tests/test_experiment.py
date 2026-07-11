@@ -39,7 +39,7 @@ def test_format4_reproduces_format3_draws_exactly():
 
 def test_unset_dials_change_nothing():
     spec = resolve_scenario(7, profile="vio_lio")
-    assert spec["scenario_format"] == SCENARIO_FORMAT == 4
+    assert spec["scenario_format"] == SCENARIO_FORMAT == 5
     assert spec["photometric"] is None
     assert spec["weather"] is None
     assert spec["ground_mode"] == "patchy"

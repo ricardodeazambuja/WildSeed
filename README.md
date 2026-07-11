@@ -26,9 +26,12 @@ camera-plugin snippet, see `wildseed weather -w <world> --show-lens-flare-snippe
 
 ![master-seed scenarios](tools/scenario_seeds_gallery.png)
 
-*Three master seeds, three worlds: `--seed 101` grows a lakeland wetland,
-`--seed 107` rolling temperate hills, `--seed 108` an alpine massif. Same seed →
-identical world, always.*
+*Three master seeds, three worlds: `--seed 102` grows a lakeland wetland,
+`--seed 107` rolling temperate hills, `--seed 101` an alpine highland (relief
+capped at a 20° mean slope by default so ground robots can drive it — pass
+`--max-slope 0` for uncapped scenery terrain). Same seed → identical world
+within a scenario format version (see
+[Reproducibility](#reproducibility)).*
 
 ## Demo videos
 
@@ -48,6 +51,15 @@ https://github.com/user-attachments/assets/8b1199a6-b1c0-4bee-8ea6-05a57d2f5078
 3 cm mean tracking error, full lidar/IMU/GPS/ground-truth dataset dumped alongside):
 
 https://github.com/user-attachments/assets/04964c7b-7570-4eff-95f7-7894b2115d6c
+
+**Same dolly, now with moving distractors** — `wildseed record -p dolly --seed 3
+--mode dynamic --dataset --distractors 0.5` spawns 8 seeded movers that patrol
+crossing tracks through the camera's view; each carries segmentation class 8
+(`distractor`) and its commanded track + velocity lands in `distractors.json`
+as motion ground truth:
+
+<!-- TODO(upload): drag the new distractors video.mp4 into the GitHub README
+     editor and replace this line with the user-attachments URL it produces. -->
 
 *Every flight is byte-reproducible: same seed ⇒ same trajectory ⇒ same video.
 Recorded with [`wildseed record`](#test-worlds-with-the-sensor-rig-fly--record); the
@@ -539,6 +551,13 @@ black src/
 # Lint
 pylint src/wildseed/
 ```
+
+**Continuous integration.** Every push/PR runs the pip-clean unit suite plus the
+CPU-side determinism gates on GitHub Actions (`.github/workflows/ci.yml`) —
+this protects the resolution/spec layer (seed → biome/preset/layout draws) from
+silent drift. GDAL-, Blender- and GPU-dependent tests skip automatically there;
+the full byte-determinism gate (mesh + ground bake + placement) needs the pinned
+`wildseed:egl` container and runs locally.
 
 ## Docker Compose
 

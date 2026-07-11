@@ -25,7 +25,7 @@ mappings come from the ground-clutter study ([GROUND_CLUTTER.md](GROUND_CLUTTER.
 `clear`, `overcast`, `fog`, `rain`, `snow`, `sunglare`. Emitters cost RTF —
 keep `benchmark rtf` in the loop when you use them.
 
-All of it resolves under the **master seed** (scenario format 4): the sun
+All of it resolves under the **master seed** (scenario format 5): the sun
 stream is an appended `SeedSequence` child, so pre-existing seeds still build
 byte-identical worlds when the new dials are unset.
 
@@ -311,6 +311,6 @@ export + truth-fed scoring path) is delivered and verified end to end.
 
 ## See also
 
-- [EXPERIMENT_PLAN.md](EXPERIMENT_PLAN.md) — design decisions + gates for this layer
+- [history/EXPERIMENT_PLAN.md](history/EXPERIMENT_PLAN.md) — design decisions + gates for this layer (program closed; kept for provenance)
 - [VIO_LIO_FEATURES.md](VIO_LIO_FEATURES.md) — the underlying recipe + measure→tune loop
 - [GROUND_CLUTTER.md](GROUND_CLUTTER.md) — the evidence behind the dial mappings
