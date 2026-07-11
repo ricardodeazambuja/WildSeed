@@ -170,3 +170,31 @@ biomes. Built by the standard manifest pipeline, sha256-locked.
 | shrub_sorrel_01 | bush | temperate, wetland | 4.8 MB |
 | celandine_01 | grass | temperate, wetland | 5.0 MB |
 | periwinkle_plant | grass | temperate | 8.2 MB |
+
+## Mesh-closedness audit (2026-07-11)
+
+Every GLB in `models/` (all categories, `_dr*` variants share their base mesh)
+was scanned with `glb_open_ratio()` (`core/distract.py`): welded boundary-edge
+ratio, 0 = watertight. Trigger: rock movers in the first distractor demo video
+vanished when their patrol yawed the mesh's back to the camera — ogre2
+backface-culls open shells even though the GLB materials say `doubleSided`.
+
+Result: **`rock_face_01` is the only solid-looking asset with an open mesh**
+(ratio 0.037 — it is a front-surface-only cliff scan with a hollow back).
+Every other rock, trunk and stump measures ~0. All other non-zero meshes are
+foliage (bushes/grasses/leafy trees, ratios 0.05–0.58): open by construction
+(leaf cards) and visually harmless — hundreds of card orientations per plant.
+
+Standing rules: the distractor mover pool auto-excludes open rocks at runtime;
+when harvesting NEW scan assets, re-run the scan (one-liner below) and flag
+any solid-looking asset with ratio > 0.02 in its USED row before palette use.
+
+```bash
+python3 -c "
+import sys; sys.path.insert(0,'src')
+from pathlib import Path
+from wildseed.core.distract import glb_open_ratio
+for p in sorted(Path('models').glob('*/*/mesh/*.glb')):
+    r = glb_open_ratio(p)
+    if r and r > 0.02: print(f'{r:.3f} {p}')"
+```
