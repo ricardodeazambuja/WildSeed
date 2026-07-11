@@ -146,9 +146,13 @@ Poly Haven assets** and reproduced with **no account or login**:
 ```bash
 # NOTE: the demo renderer needs a GPU (ogre2/EGL). Run inside the wildseed:egl image with
 # --gpus all; see "Gotchas, best practices & caveats" below. Asset build needs Blender only.
-python3 tools/build_assets.py       # fetch+convert the CC0 asset set (idempotent)
-python3 tools/build_scenarios.py    # build all 6 + render tools/scenarios_gallery.png
+python3 tools/build_assets.py                   # fetch+convert the CC0 asset set (idempotent)
+GRAFT_SUN=1 python3 tools/build_scenarios.py    # build all 6 + render tools/scenarios_gallery.png
 ```
+
+(`GRAFT_SUN=1` renders under each world's own sun + procedural sky — how the
+committed galleries look. Without it the render harness keeps its fixed flat
+sun, the stable-lighting baseline the VIO benchmarks measure under.)
 
 Density is fully tunable per category — `wildseed generate --density
 '{"tree":80,"rock":6,"bush":40,"grass":120}' --seed 7` — same `--seed` → identical world.
@@ -225,7 +229,8 @@ Common pitfalls and how to avoid each — worth reading before running the demo 
   pipeline (`terrain`/`convert`/`generate`) does **not** need a GPU; only the render step does.
   ```bash
   docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e PYTHONPATH=/workspace/src \
-    -v "$PWD:/workspace" --entrypoint bash wildseed:egl -c 'cd /workspace && python3 tools/build_scenarios.py'
+    -e GRAFT_SUN=1 -v "$PWD:/workspace" --entrypoint bash wildseed:egl \
+    -c 'cd /workspace && python3 tools/build_scenarios.py'
   ```
 - **Editing the library inside the container? Shadow the installed package.** `wildseed` is
   **pip-installed** into the image, so `python3 -m wildseed ...` imports the *baked-in* copy and
@@ -235,8 +240,8 @@ Common pitfalls and how to avoid each — worth reading before running the demo 
 - **Determinism is a feature — use `--seed`.** Same `--seed` + preset → byte-identical DEM and
   identical placement. The 6 demo scenarios reproduce exactly from a clean build. Vary the
   seed to get a fresh-but-reproducible world for VIO/LIO test runs.
-- **Single-scene builds leave the gallery with one panel.** `FOREST_SCN=savanna_flats python3
-  tools/build_scenarios.py` renders only that scene, so the 6-panel `tools/scenarios_gallery.png`
+- **Single-scene builds leave the gallery with one panel.** `FOREST_SCN=savanna_flats
+  GRAFT_SUN=1 python3 tools/build_scenarios.py` renders only that scene, so the 6-panel `tools/scenarios_gallery.png`
   ends up with a single panel. Rebuild the galleries from the frames on disk with
   `python3 tools/regen_galleries.py` (no re-render needed).
 - **Foliage must export as `alphaMode=MASK`, or you get black blobs.** Poly Haven foliage wires

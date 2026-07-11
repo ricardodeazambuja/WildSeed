@@ -9,8 +9,14 @@ Run from the repo root, inside the container, e.g.:
 
 ```bash
 docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e PYTHONPATH=/workspace/src \
-  -v "$PWD:/workspace" --entrypoint bash wildseed:egl -c 'cd /workspace && python3 tools/build_scenarios.py'
+  -e GRAFT_SUN=1 -v "$PWD:/workspace" --entrypoint bash wildseed:egl \
+  -c 'cd /workspace && python3 tools/build_scenarios.py'
 ```
+
+`GRAFT_SUN=1` renders under each world's own sun + `<sky>` (how every committed
+gallery is rendered); without it `terrain_scene.py` keeps its fixed flat sun —
+the stable-lighting baseline the VIO benches measure under, so leave it OFF for
+metric runs.
 
 ## Core demo pipeline (the path that produces the galleries)
 
@@ -21,7 +27,7 @@ docker run --rm --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e PYTHONPATH=/work
 | `normalize_blend.py` | Blender normalizer: pick LOD/variant, recenter/base-z0/scale, **rebuild foliage as `alphaMode=MASK`**, prefer the assembled tree object. |
 | `import_gltf.py`, `normalize_island_tree.py` | Variants of the normalizer for glTF input and the island-tree special case. |
 | `build_scenarios.py` | Builds + renders all 6 demos end-to-end (terraingen → terrain → ground → generate → render). `FOREST_SCN=name` filters to one scene. |
-| `terrain_scene.py` | Assembles the gz render world + the 3 cameras (`cam_hero`, `cam_oblique`, `cam_top`). |
+| `terrain_scene.py` | Assembles the gz render world + the 3 cameras (`cam_hero`, `cam_oblique`, `cam_top`). The hero cam frames a landmark boulder using real GLB footprints (multi-rock sets wider than `HERO_MAX_RAD`, default 4 m, are never the hero) and keeps the sight line clear of every tree's canopy radius. `GRAFT_SUN=1` swaps in the placement world's sun/sky (all committed galleries); default is the fixed benchmark sun. |
 | `capture_cams.py` | Captures frames from the gz camera topics → `frames/*.npy`. |
 
 ## Realism metrics

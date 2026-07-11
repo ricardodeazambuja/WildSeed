@@ -118,4 +118,6 @@ normalize scripts are `tools/fetch_polyhaven.py` and `tools/import_gltf.py`.
 ## 6. Ready-made scenarios
 
 Six complete demo scenarios (incl. two snow) with exact commands and images:
-**`docs/SCENARIOS.md`**. Rebuild them all with `tools/build_scenarios.py`.
+**`docs/SCENARIOS.md`**. Rebuild them all with `GRAFT_SUN=1 python3
+tools/build_scenarios.py` (the env var renders under each world's own
+sun/sky — how the committed galleries look).

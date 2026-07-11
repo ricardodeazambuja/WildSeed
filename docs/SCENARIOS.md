@@ -12,8 +12,9 @@ from `docs/TUTORIAL.md`).
 # 1. Build the asset set (fetch -> normalize -> convert; idempotent, ~50 assets, all CC0)
 python3 tools/build_assets.py
 
-# 2. Build all six scenarios + render the galleries
-python3 tools/build_scenarios.py    # writes tools/scenarios_gallery.png + _overview.png
+# 2. Build all six scenarios + render the galleries (GRAFT_SUN=1 -> each
+#    world's own sun/sky, how the committed galleries are rendered)
+GRAFT_SUN=1 python3 tools/build_scenarios.py    # writes tools/scenarios_gallery.png + _overview.png
 ```
 
 `build_assets.py` reads `assets/manifest.yaml` (the asset list + per-biome palettes)
@@ -61,7 +62,11 @@ rows on dry ground). Structured biomes are deliberately monoculture and
 repetitive — the hardest case for loop closure / place recognition. Their row
 geometry (row/plant spacing, bounded field size, field rotation, lateral
 jitter, missing-plant dropout, row waviness) is drawn from per-biome envelopes
-and recorded in `scenario.yaml` like every other knob. The same engine is
+and recorded in `scenario.yaml` like every other knob. The rows are
+machine-straight but the plants are not: visible per-plant jitter, gap rates
+and — for orchard trees — random canopy yaw keep the block from reading as a
+printed lattice (scenario format 5), while staying the repetitive
+place-recognition stressor. The same engine is
 available manually: `wildseed generate --rows '{"tree": {"row_distance": 6,
 "plant_distance": 4, "field_size": 80, "missing": 0.1}}'`.
 

@@ -170,6 +170,11 @@ Each run's `manifest.json`/`trajectory.json` records the seed, world and
 pattern (`runs/` is gitignored — regenerate at will):
 
 ```bash
+# 0. the showcase world scatters on the CURRENT workspace terrain state
+#    (dem/ + models/ground) — build the temperate demo first, or `generate`
+#    silently reuses whatever terrain the last pipeline run left behind:
+FOREST_SCN=temperate_hills GRAFT_SUN=1 python3 tools/build_scenarios.py
+
 # temperate flythrough (dense showcase world; see README Demo videos)
 wildseed generate --rig --rig-config configs/rig_showcase.yaml --seed 7
 tools/record_demo.sh flythrough 11 worlds/forest_world.world --agl 6
@@ -179,4 +184,11 @@ tools/record_demo.sh orbit 5 worlds/forest_world.world --radius 55 --agl 16
 
 # dynamic dolly with a physically consistent IMU + full dataset
 wildseed record -p dolly --seed 3 --mode dynamic --dataset
+
+# the same dolly with 8 seeded movers + motion ground truth (4th README video)
+tools/record_demo.sh dolly 3 worlds/forest_world.world --mode dynamic --dataset --distractors 0.5
 ```
+
+The recorder writes OpenCV `mp4v`; re-encode for browser playback before
+attaching to GitHub (`ffmpeg -i video.mp4 -c:v libx264 -crf 23 -pix_fmt
+yuv420p out.mp4`).
