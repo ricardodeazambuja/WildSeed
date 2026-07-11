@@ -161,7 +161,7 @@ biomes. Built by the standard manifest pipeline, sha256-locked.
 | tree_stump_02 | tree | alpine, winter | 8.6 MB |
 | dead_tree_trunk | tree | temperate, wetland | 8.6 MB |
 | rock_09 | rock | temperate, wetland | 18.9 MB |
-| rock_face_01 | rock | alpine | 24.3 MB |
+| rock_face_01 | rock | alpine | 24.3 MB — **open shell**: front-surface-only cliff scan, hollow back (welded boundary-edge ratio 0.037, every other rock ~0). ogre2 backface-culls the open side, so it vanishes when seen from behind — fine embedded in static scenery viewed front-ish, auto-excluded from the distractor mover pool (`glb_open_ratio`, core/distract.py), never pick it for anything that rotates or is orbited close-up. |
 | rock_moss_set_01 | rock | temperate, wetland | 6.2 MB |
 | coast_rocks_02 | rock | coastal | 44.3 MB |
 | namaqualand_boulder_02 | rock | savanna | 27.8 MB |
